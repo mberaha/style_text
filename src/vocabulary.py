@@ -1,11 +1,44 @@
 """
 Keep the current vocabulary and embeddings
 """
-from torch.nn import Embedding
+import logging
+import pickle
+import torch
 
 
 class Vocabulary(object):
-    def __init__(self):
-        self.embeddings = None
+    _SPECIAL_TOKENS = ['<pad>', '<go>', '<eos>', '<unk>']
 
-    def loadGloveEmbeddings(fileName):
+    def __init__(self):
+        "vocabulary is a list of all the words we are interested into"
+        self.embeddings = None
+        self.vocabulary = None
+
+    def loadVocabulary(self, fileName):
+        with open(fileName, 'rb') as fp:
+            vocabulary = pickle.load(fp)
+
+        self.vocabulary = sorted(vocabulary)
+        self.word2id = dict(zip(
+            self._SPECIAL_TOKENS, range(len(self._SPECIAL_TOKENS))))
+        self.id2word = self._SPECIAL_TOKENS
+        for wordId, word in enumerate(self.vocabulary):
+            wordId += len(self._SPECIAL_TOKENS)
+            self.word2id[word] = wordId
+            self.id2word.append(word)
+        self.vocabSize = len(self.id2word)
+
+    def initializeEmbeddings(self, embeddingSize):
+        self.embeddingSize = embeddingSize
+        if self.vocabulary is None:
+            logging.error('Load vocabulary first')
+            return
+
+        self.embeddings = torch.nn.Embedding(
+            self.vocabSize + 1, self.embeddingSize)
+
+    def getEmbedding(self, words):
+        unkId = self.word2id['<unk>']
+        ids = list(map(lambda x: self.word2id.get(x, unkId), words))
+        ids = torch.LongTensor(ids)
+        return self.embeddings(ids)
