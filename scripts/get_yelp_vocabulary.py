@@ -1,3 +1,7 @@
+"""
+Get the dictionary word -> id for yelp datasets
+Most common words get lower indices for memory efficiency
+"""
 import argparse
 import glob
 import pickle
@@ -12,7 +16,6 @@ if __name__ == "__main__":
 
     vocabulary = Counter()
     fileNames = glob.glob(args.files, recursive=True)
-    print(fileNames)
     for fileName in fileNames:
         with open(fileName, 'r') as fp:
             text = fp.read()
