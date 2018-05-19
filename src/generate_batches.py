@@ -5,10 +5,13 @@ def batchesFromFiles(files: list, batchsize: int, inMemory: bool):
     if inMemory:
         return loadFilesAndGenerateBatches(files, batchsize)
 
-    return yeildBatchesFromFiles(files, batchsize)
+    return yieldBatchesFromFiles(files, batchsize)
 
 
-def yeildBatchesFromFiles(files, batchsize):
+def yieldBatchesFromFiles(files, batchsize):
+    """
+    Generate batches without loading files in memory
+    """
     openedFiles = []
     for fname in files:
         openedFiles.append(open(fname, 'r'))
