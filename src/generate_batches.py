@@ -48,3 +48,15 @@ def loadFilesAndGenerateBatches(files, batchsize, shuffleFiles=True):
              labels[index:index+batchsize]))
 
     return batches
+
+
+def preprocessSentences(sentences):
+    def addGo(sentence):
+        out = ['<go>']
+        out.extend(sentence)
+        return out
+
+    encoder_inputs = sentences
+    decoder_inputs = list(map(addGo, sentences))
+    targets = list(map(lambda x: x.append('<eos>'), sentences))
+    return encoder_inputs, decoder_inputs, targets
