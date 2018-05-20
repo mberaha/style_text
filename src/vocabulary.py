@@ -18,13 +18,13 @@ class Vocabulary(object):
         with open(fileName, 'rb') as fp:
             vocabulary = pickle.load(fp)
 
-        self.vocabulary = sorted(vocabulary)
+        self.vocabulary = vocabulary
         self.word2id = dict(zip(
             self._SPECIAL_TOKENS, range(len(self._SPECIAL_TOKENS))))
         self.id2word = self._SPECIAL_TOKENS
         for wordId, word in enumerate(self.vocabulary):
-            wordId += len(self._SPECIAL_TOKENS)
-            self.word2id[word] = wordId
+            currId = wordId + len(self._SPECIAL_TOKENS)
+            self.word2id[word] = currId
             self.id2word.append(word)
         self.vocabSize = len(self.id2word)
 
