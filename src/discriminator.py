@@ -9,7 +9,7 @@ class Discriminator(nn.Module):
     """
 
     def __init__(self, in_channels, out_channels, kernel_sizes, emb_size,
-                 hidden_size=120, dropout=0.2):
+                 hidden_size=120, dropout=0.5):
         """
         Args:
         in_channels -- the input feature maps. Should be only one for text.
