@@ -42,7 +42,7 @@ def loadFilesAndGenerateBatches(files, batchsize, shuffleFiles=True):
         inputs, labels = shuffle(inputs, labels)
 
     batches = []
-    for index in range(batchsize, len(inputs), batchsize):
+    for index in range(0, len(inputs), batchsize):
         batches.append(
             (inputs[index:index+batchsize],
              labels[index:index+batchsize]))
