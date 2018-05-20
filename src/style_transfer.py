@@ -21,7 +21,7 @@ class StyleTransfer(object):
         self.params = params
         self.labelsTransform = torch.nn.Linear(1, params.dim_y)
         self.hiddenToVocab = torch.nn.Linear(
-            params.hidden_size, self.vocabulary.vocabSize)
+            params.hidden_size, self.vocabulary.vocabSize + 1)
 
     def _encodeTokens(self, tokens, hidden):
         """
@@ -41,9 +41,28 @@ class StyleTransfer(object):
             generatedOutputs.append(out)
         return generatedOutputs
 
-    def reconstructionLoss(self, generatorOutput, targets):
-        wordOutputs = self.hiddenToVocab(generatorOutput)
-        return torch.nn.functional.cross_entropy(wordOutputs, targets)
+    def _generateWithPrevOutput(self, hidden, length, soft=True):
+        hiddens = []
+        allLogits = []
+        currToken = self.vocabulary.embeddings['<go>']
+        softmax = torch.nn.Softmax()
+        for index in range(length):
+            hiddens.append(hidden)
+            out, hidden = self.generator(currToken, hidden)
+            vocabLogits = self.hiddenToVocab(out)
+            allLogits.append(vocabLogits)
+            # TODO add dropout
+            vocabProbs = softmax(vocabLogits / self.params.temperature)
+            if soft:
+                currToken = torch.matmul(vocabProbs, self.vocabulary.embeddings)
+            else:
+                _, argmax = vocabProbs.max(1)
+                currToken = self.vocabulary.embeddings[argmax]
+
+        return hiddens, allLogits
+
+    def reconstructionLoss(self, outputs, targets):
+        return torch.nn.functional.cross_entropy(outputs, targets)
 
     def trainOnBatch(self, sentences, labels):
         # transform sentences into embeddings
@@ -67,5 +86,6 @@ class StyleTransfer(object):
             transformedHidden.extend(content)
 
             generatorOutput = self._generateTokens(sentence, originalHidden)
+            vocabOutput = self.hiddenToVocab(generatorOutput)
             self.losses['reconstruction'] += self.reconstructionLoss(
-                generatorOutput, targets)
+                vocabOutput, targets)
