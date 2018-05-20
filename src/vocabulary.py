@@ -37,8 +37,11 @@ class Vocabulary(object):
         self.embeddings = torch.nn.Embedding(
             self.vocabSize + 1, self.embeddingSize)
 
-    def getEmbedding(self, words):
+    def getSentenceIds(self, words):
         unkId = self.word2id['<unk>']
         ids = list(map(lambda x: self.word2id.get(x, unkId), words))
-        ids = torch.LongTensor(ids)
+        return torch.LongTensor(ids)
+
+    def getEmbedding(self, words):
+        ids = self.getSentenceIds(words)
         return self.embeddings(ids)
