@@ -3,13 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Discriminator(nn.Module):
+class CNN(nn.Module):
     """
         GAN discriminator is a CNN
     """
 
     def __init__(self, in_channels, out_channels, kernel_sizes, emb_size,
-                 hidden_size=120, dropout=0.5):
+                 hidden_size, dropout):
         """
         Args:
         in_channels -- the input feature maps. Should be only one for text.
@@ -31,8 +31,6 @@ class Discriminator(nn.Module):
                 nn.Conv2d(in_channels, out_channels, (ks, emb_size)))
 
         self.linear = nn.Linear(out_channels*len(kernel_sizes), hidden_size)
-        self.out = nn.Linear(hidden_size, 2)
-        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x):
         """
@@ -45,6 +43,6 @@ class Discriminator(nn.Module):
         pools = [
             F.max_pool2d(conv, (conv.size()[2], 1)) for conv in convs]
         flatten = torch.cat(pools, dim=1).view(x.size()[0], -1)
-        linear = F.dropout(F.relu(self.linear(flatten)))
-        out = self.softmax(self.relu(self.out(linear)))
-        return out
+        logits = F.dropout(F.relu(self.linear(flatten)))
+
+        return logits
