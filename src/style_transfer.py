@@ -6,8 +6,8 @@ import torch.nn.functional as F
 from collections import defaultdict
 from src.generate_batches import preprocessSentences
 from src.rnn import Rnn
+from src.discriminator import Cnn
 from src.vocabulary import Vocabulary
-from src.utils import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -26,6 +26,15 @@ class StyleTransfer(object):
             params.autoencoder.hidden_size,
             params.autoencoder.num_layers,
             device)
+        # instantiating the discriminator
+        self.discriminator = Cnn(
+            params.discriminator.in_channels,
+            params.discriminator.out_channels,
+            params.discriminator.kernel_sizes,
+            params.discriminator.embedding_size,
+            params.discriminator.hidden_size,
+            params.discriminator.dropout
+        )
 
         # instantiating the solvers
         self.encoder_optimizer = optim.Adam(
@@ -38,7 +47,8 @@ class StyleTransfer(object):
             betas=params.autoencoder.betas)
 
         # instantiating the loss criterion
-        self.loss_criterion = nn.CrossEntropyLoss()
+        self.rec_loss_criterion = nn.CrossEntropyLoss()
+        self.adv_loss_criterion = nn.BCEWithLogitsLoss()
 
         # instantiating the vocabulary
         self.vocabulary = vocabulary
@@ -88,6 +98,17 @@ class StyleTransfer(object):
 
     def reconstructionLoss(self, outputs, targets):
         return torch.nn.functional.cross_entropy(outputs, targets)
+
+    def adversarialLoss(x_real, x_fake, ones, zeros):
+
+        d_real = self.discriminator(x_real)
+        d_fake = self.discriminator(x_fake)
+
+        loss_d = self.adv_loss_criterion(d_real, ones) + \
+                    self.adv_loss_criterion(d_fake, zeros)
+        loss_g = self.adv_loss_criterion(d_fake, ones)
+
+        return loss_d, loss_g
 
     def trainOnBatch(self, sentences, labels):
         # transform sentences into embeddings
