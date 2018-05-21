@@ -30,21 +30,37 @@ def yieldBatchesFromFiles(files, batchsize):
 
 def loadFilesAndGenerateBatches(files, batchsize, shuffleFiles=True):
     inputs = []
-    labels = []
+    lenLines = []
     for label, fileName in enumerate(files):
         with open(fileName, 'r') as fp:
             lines = fp.readlines()
 
-        labels.extend([label] * len(lines))
-        inputs.extend(lines)
+        lines = list(map(lambda x: x[:-1], lines))
+        lenLines.append(len(lines))
+        if shuffleFiles:
+            lines = shuffle(lines)
 
-    if shuffleFiles:
-        inputs, labels = shuffle(inputs, labels)
+        inputs.append(lines)
 
     batches = []
-    for index in range(0, len(inputs), batchsize):
-        batches.append(
-            (inputs[index:index+batchsize],
-             labels[index:index+batchsize]))
-
+    iterStep = batchsize // len(inputs)
+    for index in range(0, min(lenLines), iterStep):
+        currInputs = []
+        currLabels = []
+        for label, class_inputs in enumerate(inputs):
+            currInputs.extend(class_inputs[index:index + iterStep])
+            currLabels.extend([label] * iterStep)
+        batches.append((currInputs, currLabels))
     return batches
+
+
+def preprocessSentences(sentences):
+    def addGo(sentence):
+        out = ['<go>']
+        out.extend(sentence)
+        return out
+
+    encoder_inputs = sentences
+    decoder_inputs = list(map(addGo, sentences))
+    targets = list(map(lambda x: x.append('<eos>'), sentences))
+    return encoder_inputs, decoder_inputs, targets

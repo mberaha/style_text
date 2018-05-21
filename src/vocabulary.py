@@ -18,13 +18,13 @@ class Vocabulary(object):
         with open(fileName, 'rb') as fp:
             vocabulary = pickle.load(fp)
 
-        self.vocabulary = sorted(vocabulary)
+        self.vocabulary = vocabulary
         self.word2id = dict(zip(
             self._SPECIAL_TOKENS, range(len(self._SPECIAL_TOKENS))))
         self.id2word = self._SPECIAL_TOKENS
         for wordId, word in enumerate(self.vocabulary):
-            wordId += len(self._SPECIAL_TOKENS)
-            self.word2id[word] = wordId
+            currId = wordId + len(self._SPECIAL_TOKENS)
+            self.word2id[word] = currId
             self.id2word.append(word)
         self.vocabSize = len(self.id2word)
 
@@ -37,8 +37,11 @@ class Vocabulary(object):
         self.embeddings = torch.nn.Embedding(
             self.vocabSize + 1, self.embeddingSize)
 
-    def getEmbedding(self, words):
+    def getSentenceIds(self, words):
         unkId = self.word2id['<unk>']
         ids = list(map(lambda x: self.word2id.get(x, unkId), words))
-        ids = torch.LongTensor(ids)
+        return torch.LongTensor(ids)
+
+    def getEmbedding(self, words):
+        ids = self.getSentenceIds(words)
         return self.embeddings(ids)
