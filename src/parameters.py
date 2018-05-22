@@ -7,6 +7,7 @@ class Discriminator(object):
         self.hidden_size = 5
         self.dropout = 0.5
         self.learning_rate = 0.0001
+        self.betas = (0.5, 0.999)
 
 
 class Autoencoder(object):
