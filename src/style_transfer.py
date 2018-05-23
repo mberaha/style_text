@@ -3,12 +3,13 @@ import torch
 from torch import optim
 import torch.nn as nn
 from collections import defaultdict
-from src.generate_batches import preprocessSentences
+from src.generate_batches import preprocessSentence, batchesFromFiles
 from src.rnn import Rnn
 from src.discriminator import Cnn
 from src.vocabulary import Vocabulary
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class StyleTransfer(object):
 
@@ -77,9 +78,6 @@ class StyleTransfer(object):
         self.rec_loss_criterion = nn.CrossEntropyLoss()
         self.adv_loss_criterion = nn.BCEWithLogitsLoss()
 
-
-        # instantiating some useful functions
-
     def _encodeTokens(self, tokens, hidden):
         """
         This function takes as input a list of embeddings and returns
@@ -101,12 +99,12 @@ class StyleTransfer(object):
             generatedVocabs[i, :] = self.hiddenToVocab(curr)
         return generatedVocabs, output
 
-    def _generateWithPrevOutput(self, h0, length, soft=True):
+    def _generateWithPrevOutput(self, h0, max_length, soft=True):
         hidden = h0
-        hiddens = torch.zeros(length, 1, self.params.hidden_size, device=device)
+        hiddens = torch.zeros(max_length, 1, self.params.hidden_size, device=device)
         currToken = self.vocabulary.embeddings['<go>']
         softmax = torch.nn.Softmax()
-        for index in range(length):
+        for index in range(max_length):
             currToken = currToken.unsqueeze(0).unsqueeze(0)
             out, hidden = self.generator(currToken, hidden)
             vocabLogits = self.hiddenToVocab(out[0, 0, :])
@@ -126,10 +124,10 @@ class StyleTransfer(object):
     def reconstructionLoss(self, outputs, targets):
         return torch.nn.functional.cross_entropy(outputs, targets)
 
-    def adversarialLoss(x_real, x_fake, label):
+    def adversarialLoss(self, x_real, x_fake, label):
         discriminator = self.discriminators[label]
-        d_real = self.discriminator(x_real)
-        d_fake = self.discriminator(x_fake)
+        d_real = discriminator(x_real)
+        d_fake = discriminator(x_fake)
         label = torch.FloatTensor([label])
 
         loss_d = self.adv_loss_criterion(d_real, label) + \
@@ -137,67 +135,112 @@ class StyleTransfer(object):
         loss_g = self.adv_loss_criterion(d_fake, label)
         return loss_d, loss_g
 
-    def trainOnBatch(self, sentences, labels):
-        # transform sentences into embeddings
-        labels = np.array(labels)
-        encoder_inputs, decoder_inputs, targets = preprocessSentences(sentences)
-        encoder_inputs = list(map(self.vocabulary.getEmbedding, encoder_inputs))
-        decoder_inputs = list(map(self.vocabulary.getEmbedding, decoder_inputs))
-        targets = list(map(self.vocabulary.getWordId, sentences))
-
-        self.losses = defaultdict(float)
-        self.encoder_optimizer.zero_grad()
-        self.generator_optimizer.zero_grad()
+    def _zeroGradients(self):
+        self.autoencoder_optimizer.zero_grad()
         self.discriminator0_optimizer.zero_grad()
         self.discriminator1_optimizer.zero_grad()
-        originalHidden = []
-        transformedHidden = []
-        for index, sentence in enumerate(sentences):
 
-            #####   auto-encoder   #####
-            # initialize the first hidden state of the encoder
-            initialHidden = self.labelsTransform(labels[index])
-            initialHidden = initialHidden.unsqueeze(0).unsqueeze(0)
-            initialHidden = torch.cat(
-                (initialHidden, torch.zeros(1, 1, self.params.dim_z)), dim=2)
+    def _runSentence(self, encoder_input, generator_input, label, target):
 
-            # encode tokens and extract only content=hidden[:,:,dim_y:]
-            content = self._encodeTokens(sentence, initialHidden)
+        # auto-encoder
+        # initialize the first hidden state of the encoder
+        initialHidden = self.labelsTransform(label)
+        initialHidden = initialHidden.unsqueeze(0).unsqueeze(0)
+        initialHidden = torch.cat(
+            (initialHidden, torch.zeros(1, 1, self.params.dim_z)), dim=2)
 
+        # encode tokens and extract only content=hidden[:,:,dim_y:]
+        content = self._encodeTokens(encoder_input, initialHidden)
 
-            # generating the hidden states (yp, zp)
-            originalHidden = self.labelsTransform(labels[index])
-            originalHidden = originalHidden.unsqueeze(0).unsqueeze(0)
-            originalHidden = torch.cat(
-                (originalHidden, content), dim=2)
+        # generating the hidden states (yp, zp)
+        originalHidden = self.labelsTransform(label)
+        originalHidden = originalHidden.unsqueeze(0).unsqueeze(0)
+        originalHidden = torch.cat(
+            (originalHidden, content), dim=2)
 
-            # generating the hidden states with inverted labels (yq, zp)
-            transformedHidden = self.labelsTransform(1 - labels[index])
-            transformedHidden = transformedHidden.unsqueeze(0).unsqueeze(0)
-            transformedHidden = torch.cat(
-                (transformedHidden, content), dim=2)
+        # generating the hidden states with inverted labels (yq, zp)
+        transformedHidden = self.labelsTransform(1 - label)
+        transformedHidden = transformedHidden.unsqueeze(0).unsqueeze(0)
+        transformedHidden = torch.cat(
+            (transformedHidden, content), dim=2)
 
-            self.generator_optimizer.zero_grad()
+        # reconstruction loss
+        generatorOutput, h_teacher = self._generateTokens(
+            generator_input, originalHidden)
+        self.losses['reconstruction'] += self.reconstructionLoss(
+            generatorOutput, target)
 
-            # reconstruction loss
-            generatorOutput, h_teacher = self._generateTokens(sentence, originalHidden)
-            self.losses['reconstruction'] += self.reconstructionLoss(
-                generatorOutput, targets)
+        # adversarial losses
+        h_professor = self._generateWithPrevOutput(
+            transformedHidden, self.params.max_length, soft=True)
+        d_loss, g_loss = self.adversarialLoss(h_teacher, h_professor, label)
+        self.losses['discriminator{0}'.format(label)] += d_loss
+        self.losses['generator'] += g_loss
 
-            # adversarial losses
-            h_professor = self._generateWithPrevOutput(
-                transformedHidden, len(sentence), soft=True)
-            d_loss, g_loss = self.adversarialLoss(h_teacher, h_professor, label)
-            self.losses['discriminator{0}'.format(label)] += d_loss
-            self.losses['generator'] += g_loss
+    def _sentencesToInputs(self, sentences):
+        # transform sentences into embeddings
+        labels = np.array(labels)
+        encoder_inputs, generator_inputs, targets = \
+            preprocessSentences(sentences)
+        encoder_inputs = list(map(
+            self.vocabulary.getEmbedding, encoder_inputs))
+        generator_inputs = list(map(
+            self.vocabulary.getEmbedding, generator_inputs))
+        targets = list(map(
+            self.vocabulary.getWordId, sentences))
 
-        loss_autoencoder = self.losses['reconstruction'] + \
+        return encoder_inputs, generator_inputs, targets
+
+    def _computeLosses(self, encoder_inputs, generator_inputs, targets, labels):
+        self.losses = defaultdict(float)
+
+        for index in range(len(encoder_inputs)):
+            label = labels[index]
+            target = targets[index]
+            encoder_input = encoder_inputs[index]
+            generator_input = generator_inputs[index]
+            self._runSentence(encoder_input, generator_input, label, target)
+
+    def trainOnBatch(self, sentences, labels):
+        self.train()
+        encoder_inputs, generator_inputs, targets = \
+            self._sentencesToInputs(sentences)
+
+        self._zeroGradients()
+
+        self._computeLosses(encoder_inputs, generator_inputs, targets)
+
+        self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
-        loss_autoencoder /= len(sentences)
+        self.losses['autoencoder'] /= len(sentences)
 
-        loss_autoencoder.backward()
+        self.losses['autoencoder'].backward()
         self.autoencoder_optimizer.step()
+        self._zeroGradients()
 
-        self.losses['']
+        self.losses['discriminator0'] /= len(sentences)
+        self.losses['discriminator0'].backward()
         self.discriminator0_optimizer.step()
+        self._zeroGradients()
+
+        self.losses['discriminator1'] /= len(sentences)
+        self.losses['discriminator1'].backward()
         self.discriminator1_optimizer.step()
+        self._zeroGradients()
+
+    def evaluate(self, sentences, labels):
+        self.eval()
+        self.losses = defaultdict(float)
+        encoder_inputs, generator_inputs, targets = \
+            self._sentencesToInputs(sentences)
+
+        self._computeLosses(encoder_inputs, generator_inputs, targets, labels)
+
+        self.losses['autoencoder'] = self.losses['reconstruction'] + \
+            self.params.lambda_GAN * self.losses['generator']
+        self.losses['autoencoder'] /= len(sentences)
+
+        self.losses['discriminator0'] /= len(sentences)
+        self.losses['discriminator1'] /= len(sentences)
+
+        return self.losses['autoencoder']
