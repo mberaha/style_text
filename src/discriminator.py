@@ -31,7 +31,6 @@ class Cnn(nn.Module):
                 nn.Conv2d(in_channels, out_channels, (ks, emb_size)))
 
         self.linear = nn.Linear(out_channels*len(kernel_sizes), 1)
-        self.
 
     def forward(self, x):
         """
