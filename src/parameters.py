@@ -21,6 +21,8 @@ class Autoencoder(object):
 
 
 class Params(object):
+    in_memory = True
+    max_length = 20
     embedding_size = 200
     dim_y = 200
     dim_z = 500
