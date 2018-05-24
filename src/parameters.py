@@ -10,7 +10,7 @@ class Discriminator(object):
         self.betas = (0.5, 0.999)
 
 
-class Autoencoder(object):
+class AutoencoderParams(object):
     def __init__(self, embedding_size, dim_y, dim_z):
         self.input_size = embedding_size
         self.hidden_size = dim_y + dim_z
