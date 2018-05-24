@@ -29,5 +29,5 @@ class Params(object):
     batch_size = 128
     temperature = 0.001
     lambda_GAN = 1
-    autoencoder = Autoencoder(embedding_size, dim_y, dim_z)
-    discriminator = Discriminator(embedding_size)
+    autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
+    discriminator = DiscriminatorParams(embedding_size)
