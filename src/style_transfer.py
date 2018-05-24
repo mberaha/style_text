@@ -66,11 +66,11 @@ class StyleTransfer(object):
             lr=params.autoencoder.learning_rate,
             betas=params.autoencoder.betas)
         self.discriminator0_optimizer = optim.Adam(
-            self.discriminator.parameters(),
+            self.discriminators[0].parameters(),
             lr=params.discriminator.learning_rate,
             betas=params.discriminator.betas)
         self.discriminator1_optimizer = optim.Adam(
-            self.discriminator.parameters(),
+            self.discriminators1.parameters(),
             lr=params.discriminator.learning_rate,
             betas=params.discriminator.betas)
 
@@ -141,7 +141,6 @@ class StyleTransfer(object):
         self.discriminator1_optimizer.zero_grad()
 
     def _runSentence(self, encoder_input, generator_input, label, target):
-
         # auto-encoder
         # initialize the first hidden state of the encoder
         initialHidden = self.labelsTransform(label)
