@@ -1,4 +1,4 @@
-class Discriminator(object):
+class DiscriminatorParams(object):
     def __init__(self, embedding_size):
         self.in_channels = 1
         self.out_channels = 3  # to check
