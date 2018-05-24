@@ -32,7 +32,7 @@ class StyleTransfer(object):
         # instantiating linear networks for hidden transformations
         self.labelsTransform = torch.nn.Linear(1, params.dim_y)
         self.hiddenToVocab = torch.nn.Linear(
-            params.hidden_size, self.vocabulary.vocabSize + 1)
+            params.autoencoder.hidden_size, self.vocabulary.vocabSize + 1)
 
         # instantiating the discriminators
         discriminator0 = Cnn(
@@ -101,7 +101,7 @@ class StyleTransfer(object):
 
     def _generateWithPrevOutput(self, h0, max_length, soft=True):
         hidden = h0
-        hiddens = torch.zeros(max_length, 1, self.params.hidden_size, device=device)
+        hiddens = torch.zeros(max_length, 1, self.params.autoencoder.hidden_size, device=device)
         currToken = self.vocabulary.embeddings['<go>']
         softmax = torch.nn.Softmax()
         for index in range(max_length):
