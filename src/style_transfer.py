@@ -3,7 +3,7 @@ import torch
 from torch import optim
 import torch.nn as nn
 from collections import defaultdict
-from src.generate_batches import preprocessSentence, batchesFromFiles
+from src.generate_batches import preprocessSentences
 from src.rnn import Rnn
 from src.discriminator import Cnn
 from src.vocabulary import Vocabulary
@@ -178,7 +178,6 @@ class StyleTransfer(object):
 
     def _sentencesToInputs(self, sentences):
         # transform sentences into embeddings
-        labels = np.array(labels)
         encoder_inputs, generator_inputs, targets = \
             preprocessSentences(sentences)
         encoder_inputs = list(map(
@@ -202,11 +201,11 @@ class StyleTransfer(object):
 
     def trainOnBatch(self, sentences, labels):
         self.train()
+        labels = np.array(labels)
         encoder_inputs, generator_inputs, targets = \
             self._sentencesToInputs(sentences)
 
         self._zeroGradients()
-
         self._computeLosses(encoder_inputs, generator_inputs, targets)
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
