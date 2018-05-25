@@ -17,6 +17,7 @@ class StyleTransfer(BaseModel):
     def __init__(self, params, vocabulary: Vocabulary):
         super().__init__()
         self.vocabulary = vocabulary
+        self.params = params
 
         # instantiating the encoder and the generator
         self.encoder = Rnn(
@@ -71,7 +72,7 @@ class StyleTransfer(BaseModel):
             lr=params.discriminator.learning_rate,
             betas=params.discriminator.betas)
         self.discriminator1_optimizer = optim.Adam(
-            self.discriminators1.parameters(),
+            self.discriminators[1].parameters(),
             lr=params.discriminator.learning_rate,
             betas=params.discriminator.betas)
 
@@ -87,13 +88,16 @@ class StyleTransfer(BaseModel):
         hidden -- h0
         """
         for token in tokens:
+            token = token.unsqueeze(0).unsqueeze(0)
             out, hidden = self.encoder(token, hidden)
         return hidden[:, :, self.params.dim_y:]
 
     def _generateTokens(self, tokens, h0):
+        # TODO modificare h0: deve essere lungo come tokens (penso)
         hidden = h0
         generatedVocabs = torch.zeros(
             len(tokens), self.vocabulary.vocabSize + 1, device=device)
+        tokens = tokens.unsqueeze(1)
         output, hidden = self.generator(tokens, hidden)
         for i in range(output.shape[0]):
             curr = output[i, 0, :]
@@ -123,6 +127,10 @@ class StyleTransfer(BaseModel):
         return hiddens
 
     def reconstructionLoss(self, outputs, targets):
+        print(outputs)
+        print(outputs.shape)
+        print(targets)
+        print(targets.shape)
         return torch.nn.functional.cross_entropy(outputs, targets)
 
     def adversarialLoss(self, x_real, x_fake, label):
@@ -144,6 +152,7 @@ class StyleTransfer(BaseModel):
     def _runSentence(self, encoder_input, generator_input, label, target):
         # auto-encoder
         # initialize the first hidden state of the encoder
+        label = torch.FloatTensor([label])
         initialHidden = self.labelsTransform(label)
         initialHidden = initialHidden.unsqueeze(0).unsqueeze(0)
         initialHidden = torch.cat(
@@ -186,7 +195,7 @@ class StyleTransfer(BaseModel):
         generator_inputs = list(map(
             self.vocabulary.getEmbedding, generator_inputs))
         targets = list(map(
-            self.vocabulary.getWordId, sentences))
+            self.vocabulary.getSentenceIds, sentences))
 
         return encoder_inputs, generator_inputs, targets
 
@@ -207,7 +216,7 @@ class StyleTransfer(BaseModel):
             self._sentencesToInputs(sentences)
 
         self._zeroGradients()
-        self._computeLosses(encoder_inputs, generator_inputs, targets)
+        self._computeLosses(encoder_inputs, generator_inputs, targets, labels)
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
