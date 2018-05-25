@@ -27,6 +27,7 @@ class Params(object):
     dim_y = 200
     dim_z = 500
     batch_size = 128
+    epochs = 10
     temperature = 0.001
     lambda_GAN = 1
     autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
