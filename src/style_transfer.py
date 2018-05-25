@@ -3,6 +3,7 @@ import torch
 from torch import optim
 import torch.nn as nn
 from collections import defaultdict
+from src.base_model import BaseModel
 from src.generate_batches import preprocessSentences
 from src.rnn import Rnn
 from src.discriminator import Cnn
@@ -11,10 +12,10 @@ from src.vocabulary import Vocabulary
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class StyleTransfer(object):
+class StyleTransfer(BaseModel):
 
     def __init__(self, params, vocabulary: Vocabulary):
-
+        super().__init__()
         self.vocabulary = vocabulary
 
         # instantiating the encoder and the generator
@@ -225,6 +226,7 @@ class StyleTransfer(object):
         self.losses['discriminator1'].backward()
         self.discriminator1_optimizer.step()
         self._zeroGradients()
+        return self.losses['autoencoder']
 
     def evaluate(self, sentences, labels):
         self.eval()
