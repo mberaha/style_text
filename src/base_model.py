@@ -7,14 +7,13 @@ from tqdm import tqdm
 class BaseModel(nn.Module):
     _MAX_LOSS = 1e10
 
-    def __init__(self, savefile):
+    def __init__(self):
         super().__init__()
-        self.savefile = savefile
 
     def load(self):
-        self.load_state_dict(self.savefile)
+        self.load_state_dict(self.params.savefile)
 
-    def train(self, trainBatches, validBatch, shuffle=True):
+    def trainModel(self, trainBatches, validBatch, shuffle=True):
         for epoch in range(self.params.epochs):
             if shuffle:
                 random.shuffle(trainBatches)
@@ -32,4 +31,4 @@ class BaseModel(nn.Module):
         print("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
             index, len(trainBatches), evaluationLoss))
         if evaluationLoss < bestLoss:
-            torch.save(self.state_dict())
+            torch.save(self.state_dict(), self.params.savefile)
