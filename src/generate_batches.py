@@ -68,7 +68,12 @@ def preprocessSentences(sentences):
         out.extend(sentence)
         return out
 
+    def addEos(sentence):
+        sentence.append('<eos>')
+        return sentence
+
+    sentences = list(map(lambda x: x.split(" "), sentences))
     encoder_inputs = sentences
-    decoder_inputs = list(map(addGo, sentences))
-    targets = list(map(lambda x: x.append('<eos>'), sentences))
+    decoder_inputs = [addGo(x) for x in sentences]
+    targets = [addEos(x) for x in sentences]
     return encoder_inputs, decoder_inputs, targets

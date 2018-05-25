@@ -30,5 +30,6 @@ class Params(object):
     epochs = 10
     temperature = 0.001
     lambda_GAN = 1
+    savefile = "data/yelp/model"
     autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
     discriminator = DiscriminatorParams(embedding_size)
