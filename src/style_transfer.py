@@ -9,13 +9,9 @@ from src.rnn import Rnn
 from src.discriminator import Cnn
 from src.vocabulary import Vocabulary
 import pickle
-if torch.cuda.is_available():
-    import torch.cuda as t
-else:
-    import torch as t
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 class StyleTransfer(BaseModel):
 
@@ -28,18 +24,17 @@ class StyleTransfer(BaseModel):
         self.encoder = Rnn(
             params.autoencoder.input_size,
             params.autoencoder.hidden_size,
-            params.autoencoder.num_layers,
-            device)
+            params.autoencoder.num_layers).to(device)
         self.generator = Rnn(
             params.autoencoder.input_size,
             params.autoencoder.hidden_size,
-            params.autoencoder.num_layers,
-            device)
+            params.autoencoder.num_layers).to(device)
 
         # instantiating linear networks for hidden transformations
-        self.labelsTransform = torch.nn.Linear(1, params.dim_y)
+        self.labelsTransform = torch.nn.Linear(1, params.dim_y).to(device)
         self.hiddenToVocab = torch.nn.Linear(
-            params.autoencoder.hidden_size, self.vocabulary.vocabSize + 1)
+            params.autoencoder.hidden_size,
+            self.vocabulary.vocabSize + 1).to(device)
 
         # instantiating the discriminators
         discriminator0 = Cnn(
@@ -49,7 +44,7 @@ class StyleTransfer(BaseModel):
             params.discriminator.embedding_size,
             params.discriminator.hidden_size,
             params.discriminator.dropout
-        )
+        ).to(device)
         discriminator1 = Cnn(
             params.discriminator.in_channels,
             params.discriminator.out_channels,
@@ -57,7 +52,7 @@ class StyleTransfer(BaseModel):
             params.discriminator.embedding_size,
             params.discriminator.hidden_size,
             params.discriminator.dropout
-        )
+        ).to(device)
         self.discriminators = {
             0: discriminator0,
             1: discriminator1
@@ -93,7 +88,7 @@ class StyleTransfer(BaseModel):
         hidden -- h0
         """
         for token in tokens:
-            token = token.unsqueeze(0).unsqueeze(0)
+            token = token.unsqueeze(0).unsqueeze(0).to(device)
             out, hidden = self.encoder(token, hidden)
         return hidden[:, :, self.params.dim_y:]
 
@@ -155,7 +150,7 @@ class StyleTransfer(BaseModel):
     def _runSentence(self, encoder_input, generator_input, label, target):
         # auto-encoder
         # initialize the first hidden state of the encoder
-        tensorLabel = t.FloatTensor([label], device=device)
+        tensorLabel = torch.FloatTensor([label]).to(device)
         initialHidden = self.labelsTransform(tensorLabel)
         initialHidden = initialHidden.unsqueeze(0).unsqueeze(0)
         initialHidden = torch.cat(

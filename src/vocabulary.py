@@ -30,7 +30,8 @@ class Vocabulary(object):
             self.word2id[word] = currId
             self.id2word.append(word)
         self.vocabSize = len(self.id2word)
-        print(self.vocabSize, max(list(self.word2id.values())))
+        print("the size of the vocabulary is %i and the maximum wordID is %i:"
+              % (self.vocabSize, max(list(self.word2id.values()))))
 
     def initializeEmbeddings(self, embeddingSize):
         self.embeddingSize = embeddingSize
@@ -39,12 +40,12 @@ class Vocabulary(object):
             return
 
         self.embeddings = torch.nn.Embedding(
-            self.vocabSize + 1, self.embeddingSize)
+            self.vocabSize + 1, self.embeddingSize).to(device)
 
     def getSentenceIds(self, words):
         unkId = self.word2id['<unk>']
         ids = list(map(lambda x: self.word2id.get(x, unkId), words))
-        return torch.LongTensor(ids, device=device)
+        return torch.LongTensor(ids, device=device).to(device)
 
     def getEmbedding(self, words):
         ids = self.getSentenceIds(words)
