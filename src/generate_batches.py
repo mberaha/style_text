@@ -72,7 +72,6 @@ def preprocessSentences(sentences):
         sentence.append('<eos>')
         return sentence
 
-    sentences = list(map(lambda x: x.split(" "), sentences))
     encoder_inputs = sentences
     decoder_inputs = [addGo(x) for x in sentences]
     targets = [addEos(x) for x in sentences]

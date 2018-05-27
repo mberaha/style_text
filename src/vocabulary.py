@@ -5,6 +5,8 @@ import logging
 import pickle
 import torch
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 _SPECIAL_TOKENS = ['<pad>', '<go>', '<eos>', '<unk>']
 
 
@@ -42,7 +44,7 @@ class Vocabulary(object):
     def getSentenceIds(self, words):
         unkId = self.word2id['<unk>']
         ids = list(map(lambda x: self.word2id.get(x, unkId), words))
-        return torch.LongTensor(ids)
+        return torch.LongTensor(ids, device=device)
 
     def getEmbedding(self, words):
         ids = self.getSentenceIds(words)

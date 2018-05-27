@@ -27,8 +27,12 @@ class Cnn(nn.Module):
         # build parallel CNNs with different kernel sizes
         self.convs = nn.ModuleList([])  # CHECK CONVS ON ORIGINAL PAPER
         for ks in kernel_sizes:
-            self.convs.append(
-                nn.Conv2d(in_channels, out_channels, (ks, emb_size)))
+            conv = nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                kernel_size=(ks, emb_size),
+                stride=1)
+            self.convs.append(conv)
 
         self.linear = nn.Linear(out_channels*len(kernel_sizes), 1)
 

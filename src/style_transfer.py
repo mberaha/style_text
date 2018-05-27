@@ -8,6 +8,11 @@ from src.generate_batches import preprocessSentences
 from src.rnn import Rnn
 from src.discriminator import Cnn
 from src.vocabulary import Vocabulary
+import pickle
+if torch.cuda.is_available():
+    import torch.cuda as t
+else:
+    import torch as t
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -106,8 +111,9 @@ class StyleTransfer(BaseModel):
 
     def _generateWithPrevOutput(self, h0, max_length, soft=True):
         hidden = h0
-        hiddens = torch.zeros(max_length, 1, self.params.autoencoder.hidden_size, device=device)
-        currToken = self.vocabulary.embeddings['<go>']
+        hiddens = torch.zeros(
+            max_length, 1, self.params.autoencoder.hidden_size, device=device)
+        currToken = self.vocabulary.getEmbedding(['<go>']).squeeze(0)
         softmax = torch.nn.Softmax()
         for index in range(max_length):
             currToken = currToken.unsqueeze(0).unsqueeze(0)
@@ -121,23 +127,20 @@ class StyleTransfer(BaseModel):
                     vocabProbs, self.vocabulary.embeddings.weight)
             else:
                 _, argmax = vocabProbs.max(1)
-                currToken = self.vocabulary.embeddings[argmax]
+                currToken = self.vocabulary.getEmbedding([argmax])
 
         hiddens = torch.cat((h0, hiddens), dim=0)
         return hiddens
 
     def reconstructionLoss(self, outputs, targets):
-        print(outputs)
-        print(outputs.shape)
-        print(targets)
-        print(targets.shape)
         return torch.nn.functional.cross_entropy(outputs, targets)
 
     def adversarialLoss(self, x_real, x_fake, label):
         discriminator = self.discriminators[label]
-        d_real = discriminator(x_real)
-        d_fake = discriminator(x_fake)
-        label = torch.FloatTensor([label])
+        with open('x_fake.pickle', 'wb') as fp:
+            pickle.dump(x_fake, fp)
+        d_fake = discriminator(x_fake.unsqueeze(1))
+        d_real = discriminator(x_real.unsqueeze(1))
 
         loss_d = self.adv_loss_criterion(d_real, label) + \
             self.adv_loss_criterion(d_fake, 1 - label)
@@ -152,23 +155,24 @@ class StyleTransfer(BaseModel):
     def _runSentence(self, encoder_input, generator_input, label, target):
         # auto-encoder
         # initialize the first hidden state of the encoder
-        label = torch.FloatTensor([label])
-        initialHidden = self.labelsTransform(label)
+        tensorLabel = t.FloatTensor([label], device=device)
+        initialHidden = self.labelsTransform(tensorLabel)
         initialHidden = initialHidden.unsqueeze(0).unsqueeze(0)
         initialHidden = torch.cat(
-            (initialHidden, torch.zeros(1, 1, self.params.dim_z)), dim=2)
+            (initialHidden, torch.zeros(1, 1, self.params.dim_z, device=device)),
+            dim=2)
 
         # encode tokens and extract only content=hidden[:,:,dim_y:]
         content = self._encodeTokens(encoder_input, initialHidden)
 
         # generating the hidden states (yp, zp)
-        originalHidden = self.labelsTransform(label)
+        originalHidden = self.labelsTransform(tensorLabel)
         originalHidden = originalHidden.unsqueeze(0).unsqueeze(0)
         originalHidden = torch.cat(
             (originalHidden, content), dim=2)
 
         # generating the hidden states with inverted labels (yq, zp)
-        transformedHidden = self.labelsTransform(1 - label)
+        transformedHidden = self.labelsTransform(1 - tensorLabel)
         transformedHidden = transformedHidden.unsqueeze(0).unsqueeze(0)
         transformedHidden = torch.cat(
             (transformedHidden, content), dim=2)
@@ -188,6 +192,7 @@ class StyleTransfer(BaseModel):
 
     def _sentencesToInputs(self, sentences):
         # transform sentences into embeddings
+        sentences = list(map(lambda x: x.split(" "), sentences))
         encoder_inputs, generator_inputs, targets = \
             preprocessSentences(sentences)
         encoder_inputs = list(map(
