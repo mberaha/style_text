@@ -75,8 +75,8 @@ class StyleTransfer(BaseModel):
             betas=params.discriminator.betas)
 
         # instantiating the loss criterion
-        self.rec_loss_criterion = nn.CrossEntropyLoss()
-        self.adv_loss_criterion = nn.BCEWithLogitsLoss()
+        self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
+        self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
     def _encodeTokens(self, tokens, hidden):
         """
@@ -139,17 +139,14 @@ class StyleTransfer(BaseModel):
         hiddens = torch.cat((h0, hiddens), dim=0)
         return hiddens
 
-    def reconstructionLoss(self, outputs, targets):
-        return torch.nn.functional.cross_entropy(outputs, targets)
-
     def adversarialLoss(self, x_real, x_fake, label):
         discriminator = self.discriminators[label]
         x_fake = x_fake.squeeze(1).unsqueeze(0).unsqueeze(0)
         x_real = x_real.squeeze(1).unsqueeze(0).unsqueeze(0)
         # print("h_professor shape is:", x_fake.shape)
         # print("h_teacher shape is:", x_real.shape)
-        class_fake = discriminator(x_fake)
-        class_real = discriminator(x_real)
+        class_fake = discriminator(x_fake.detach())
+        class_real = discriminator(x_real.detach())
         class_fake = class_fake.squeeze(0)
         class_real = class_real.squeeze(0)
 
@@ -192,7 +189,7 @@ class StyleTransfer(BaseModel):
         # reconstruction loss
         generatorOutput, h_teacher = self._generateTokens(
             generator_input, originalHidden)
-        self.losses['reconstruction'] += self.reconstructionLoss(
+        self.losses['reconstruction'] += self.rec_loss_criterion(
             generatorOutput, target)
 
         # adversarial losses
@@ -239,12 +236,12 @@ class StyleTransfer(BaseModel):
             self.params.lambda_GAN * self.losses['generator']
         self.losses['autoencoder'] /= len(sentences)
 
-        self.losses['autoencoder'].backward()
+        self.losses['autoencoder'].backward(retain_graph=True)
         self.autoencoder_optimizer.step()
         self._zeroGradients()
 
         self.losses['discriminator0'] /= len(sentences)
-        self.losses['discriminator0'].backward()
+        self.losses['discriminator0'].backward(retain_graph=True)
         self.discriminator0_optimizer.step()
         self._zeroGradients()
 
