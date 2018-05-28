@@ -8,7 +8,7 @@ class Cnn(nn.Module):
         GAN discriminator is a CNN
     """
 
-    def __init__(self, in_channels, out_channels, kernel_sizes, emb_size,
+    def __init__(self, in_channels, out_channels, kernel_sizes,
                  hidden_size, dropout):
         """
         Args:
@@ -16,37 +16,41 @@ class Cnn(nn.Module):
         out_channels -- the output feature maps a.k.a response maps
                         = number of filters/kernels
         kernel_sizes -- the lengths of the filters. Should be the number of
-                        embeddings sweeped at a time by the different filters.
-        emb_size -- size of the embedding
-        hidden_size = is the number of hidden units for the Linear layer
-
+                        generators' hidden states sweeped at a time
+                        by the different filters.
+        hidden_size -- size of the hidden states of the generator
+        hidden_units = is the number of hidden units for the Linear layer
         """
-
         super().__init__()
 
+        self.dropout = dropout
         # build parallel CNNs with different kernel sizes
         self.convs = nn.ModuleList([])  # CHECK CONVS ON ORIGINAL PAPER
         for ks in kernel_sizes:
             conv = nn.Conv2d(
                 in_channels=in_channels,
                 out_channels=out_channels,
-                kernel_size=(ks, emb_size),
+                kernel_size=(ks, hidden_size),
                 stride=1)
             self.convs.append(conv)
-
         self.linear = nn.Linear(out_channels*len(kernel_sizes), 1)
 
     def forward(self, x):
         """
         Args:
-        x -- (batch_size * in_channels=1 * seq_len * emb_dim)
+        x -- (batch_size, in_channels=1, seq_len, hidden_size)
+            = (1, 1, seq_length (max_length for professor), hidden_size)
         """
+        x = [
+            F.leaky_relu(conv(x), negative_slope=0.01).squeeze(3)
+            for conv in self.convs]
+        x = [
+            F.max_pool1d(i, i.size(2)).squeeze(2) for i in x]
 
-        convs = [
-            F.leaky_relu(conv(x), negative_slope=0.01) for conv in self.convs]
-        pools = [
-            F.max_pool2d(conv, (conv.size()[2], 1)) for conv in convs]
-        flatten = torch.cat(pools, dim=1).view(x.size()[0], -1)
-        logits = F.dropout(F.relu(self.linear(flatten)))
+        x = torch.cat(x, 1)
+        x = F.dropout(x, p=self.dropout)
+        x = self.linear(x)
+        #flatten = torch.cat(pooled, dim=1).view(x.size()[0], -1)
+        #logits = F.relu(self.linear(flatten))
 
-        return logits
+        return x
