@@ -41,16 +41,14 @@ class StyleTransfer(BaseModel):
             params.discriminator.in_channels,
             params.discriminator.out_channels,
             params.discriminator.kernel_sizes,
-            params.discriminator.embedding_size,
-            params.discriminator.hidden_size,
+            params.autoencoder.hidden_size,
             params.discriminator.dropout
         ).to(device)
         discriminator1 = Cnn(
             params.discriminator.in_channels,
             params.discriminator.out_channels,
             params.discriminator.kernel_sizes,
-            params.discriminator.embedding_size,
-            params.discriminator.hidden_size,
+            params.autoencoder.hidden_size,
             params.discriminator.dropout
         ).to(device)
         self.discriminators = {
@@ -105,15 +103,29 @@ class StyleTransfer(BaseModel):
         return generatedVocabs, output
 
     def _generateWithPrevOutput(self, h0, max_length, soft=True):
+        """
+        Implements professor teaching for the generator,transforming outputs
+        at each time t to a curren token representing a weighted average
+        of the embeddings (if soft=True) or just the most probable one (else)
+        Params:
+        h0 -- the first hidden state y + z of size (1, 1, hidden_size)
+        max_length -- stops the generator after max_length tokens generated
+        Output:
+        hiddens -- of shape (max_length, 1, hidden_size).
+                    If length<max_length it ends with zeros.
+        """
+
         hidden = h0
         hiddens = torch.zeros(
             max_length, 1, self.params.autoencoder.hidden_size, device=device)
-        currToken = self.vocabulary.getEmbedding(['<go>']).squeeze(0)
+        currToken = self.vocabulary.getEmbedding(['<go>'])
+        currToken = currToken.squeeze(0)
         softmax = torch.nn.Softmax()
         for index in range(max_length):
             currToken = currToken.unsqueeze(0).unsqueeze(0)
             out, hidden = self.generator(currToken, hidden)
             vocabLogits = self.hiddenToVocab(out[0, 0, :])
+            hiddens[index, :, :] = hidden
 
             # TODO add dropout
             vocabProbs = softmax(vocabLogits / self.params.temperature)
@@ -132,14 +144,19 @@ class StyleTransfer(BaseModel):
 
     def adversarialLoss(self, x_real, x_fake, label):
         discriminator = self.discriminators[label]
-        with open('x_fake.pickle', 'wb') as fp:
-            pickle.dump(x_fake, fp)
-        d_fake = discriminator(x_fake.unsqueeze(1))
-        d_real = discriminator(x_real.unsqueeze(1))
+        x_fake = x_fake.squeeze(1).unsqueeze(0).unsqueeze(0)
+        x_real = x_real.squeeze(1).unsqueeze(0).unsqueeze(0)
+        # print("h_professor shape is:", x_fake.shape)
+        # print("h_teacher shape is:", x_real.shape)
+        class_fake = discriminator(x_fake)
+        class_real = discriminator(x_real)
+        class_fake = class_fake.squeeze(0)
+        class_real = class_real.squeeze(0)
 
-        loss_d = self.adv_loss_criterion(d_real, label) + \
-            self.adv_loss_criterion(d_fake, 1 - label)
-        loss_g = self.adv_loss_criterion(d_fake, label)
+        label = torch.FloatTensor([label]).to(device)
+        loss_d = self.adv_loss_criterion(class_real, label) + \
+            self.adv_loss_criterion(class_fake, 1 - label)
+        loss_g = self.adv_loss_criterion(class_fake, label)
         return loss_d, loss_g
 
     def _zeroGradients(self):
