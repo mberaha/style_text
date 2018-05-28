@@ -19,10 +19,7 @@ if __name__ == "__main__":
     args = easydict.EasyDict({
             "train_files": "data/yelp/train/*",
             "evaluation_files": "data/yelp/dev/*",
-            "vocabulary": "data/yelp/vocabulary.pickle",
-            "out": "result",
-            "resume": False,
-            "unit": 1000
+            "vocabulary": "data/yelp/vocabulary.pickle"
     })
 
     params = Params()
