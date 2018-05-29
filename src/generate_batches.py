@@ -1,3 +1,4 @@
+import itertools
 from sklearn.utils import shuffle
 
 
@@ -28,7 +29,7 @@ def yieldBatchesFromFiles(files, batchsize):
         yield inputs, labels
 
 
-def loadFilesAndGenerateBatches(files, batchsize, shuffleFiles=True):
+def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
     inputs = []
     lenLines = []
     for label, fileName in enumerate(files):
@@ -41,6 +42,13 @@ def loadFilesAndGenerateBatches(files, batchsize, shuffleFiles=True):
             lines = shuffle(lines)
 
         inputs.append(lines)
+
+    if batchsize < 0:
+        labels = []
+        for index, examples in enumerate(inputs):
+            labels.extend([index] * len(examples))
+        inputs = itertools.chain(*inputs)
+        return inputs, labels
 
     batches = []
     iterStep = batchsize // len(inputs)
@@ -60,7 +68,11 @@ def preprocessSentences(sentences):
         out.extend(sentence)
         return out
 
+    def addEos(sentence):
+        sentence.append('<eos>')
+        return sentence
+
     encoder_inputs = sentences
-    decoder_inputs = list(map(addGo, sentences))
-    targets = list(map(lambda x: x.append('<eos>'), sentences))
+    decoder_inputs = [addGo(x) for x in sentences]
+    targets = [addEos(x) for x in sentences]
     return encoder_inputs, decoder_inputs, targets
