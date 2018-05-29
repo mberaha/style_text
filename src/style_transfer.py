@@ -87,9 +87,6 @@ class StyleTransfer(BaseModel):
         hidden -- h0
         """
         out, hidden = self.encoder(tokens, hiddens, lenghts)
-        # for token in tokens:
-        #     token = token.unsqueeze(0).unsqueeze(0).to(device)
-        #     out, hidden = self.encoder(token, hidden)
         return hidden[:, :, self.params.dim_y:]
 
     def _generateTokens(self, tokens, h0, lenghts):
@@ -97,13 +94,7 @@ class StyleTransfer(BaseModel):
         generatedVocabs = torch.zeros(
             self.params.batch_size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
-        # tokens = tokens.unsqueeze(1)
         output, hidden = self.generator(tokens, hidden, lenghts)
-        # print("Generator output: ", output.shape)
-        # for i in range(output.shape[0]):
-        #     curr = output[i, :, :]
-        #     generatedVocabs[i, :, :] = self.hiddenToVocab(curr)
-        # print("Generated vocabs: ", generatedVocabs.shape)
         generatedVocabs = self.hiddenToVocab(output)
         return generatedVocabs, output
 
@@ -127,7 +118,7 @@ class StyleTransfer(BaseModel):
         goEmbedding = self.vocabulary.getEmbedding(['<go>']).squeeze(0)
         currTokens = goEmbedding.repeat(self.params.batch_size, 1)
         currTokens = currTokens.unsqueeze(1)
-        # currToken = currToken.squeeze(0)
+
         softmax = torch.nn.Softmax()
         for index in range(max_length):
             # generator need input (seq_len, batch_size, input_size)
@@ -169,44 +160,6 @@ class StyleTransfer(BaseModel):
         self.discriminator0_optimizer.zero_grad()
         self.discriminator1_optimizer.zero_grad()
 
-    def _runSentence(self, encoder_input, generator_input, label, target):
-        # auto-encoder
-        # initialize the first hidden state of the encoder
-        tensorLabel = torch.FloatTensor([label]).to(device)
-        initialHidden = self.labelsTransform(tensorLabel)
-        initialHidden = initialHidden.unsqueeze(0).unsqueeze(0)
-        initialHidden = torch.cat(
-            (initialHidden, torch.zeros(1, 1, self.params.dim_z, device=device)),
-            dim=2)
-
-        # encode tokens and extract only content=hidden[:,:,dim_y:]
-        content = self._encodeTokens(encoder_input, initialHidden)
-
-        # generating the hidden states (yp, zp)
-        originalHidden = self.labelsTransform(tensorLabel)
-        originalHidden = originalHidden.unsqueeze(0).unsqueeze(0)
-        originalHidden = torch.cat(
-            (originalHidden, content), dim=2)
-
-        # generating the hidden states with inverted labels (yq, zp)
-        transformedHidden = self.labelsTransform(1 - tensorLabel)
-        transformedHidden = transformedHidden.unsqueeze(0).unsqueeze(0)
-        transformedHidden = torch.cat(
-            (transformedHidden, content), dim=2)
-
-        # reconstruction loss
-        generatorOutput, h_teacher = self._generateTokens(
-            generator_input, originalHidden)
-        self.losses['reconstruction'] += self.rec_loss_criterion(
-            generatorOutput.transpose(1, 2), target)
-
-        # adversarial losses
-        h_professor = self._generateWithPrevOutput(
-            transformedHidden, self.params.max_length, soft=True)
-        d_loss, g_loss = self.adversarialLoss(h_teacher, h_professor, label)
-        self.losses['discriminator{0}'.format(label)] += d_loss
-        self.losses['generator'] += g_loss
-
     def _sentencesToInputs(self, sentences):
         # transform sentences into embeddings
         sentences = list(map(lambda x: x.split(" "), sentences))
@@ -226,17 +179,11 @@ class StyleTransfer(BaseModel):
     def _computeLosses(
             self, encoder_inputs, generator_inputs, targets, labels, lenghts):
         self.losses = defaultdict(float)
-        self._runBatch(encoder_inputs, generator_inputs, targets, labels, lenghts)
-        # for index in range(len(encoder_inputs)):
-        #     label = labels[index]
-        #     target = targets[index]
-        #     encoder_input = encoder_inputs[index]
-        #     generator_input = generator_inputs[index]
-        #     self._runSentence(encoder_input, generator_input, label, target)
+        self._runBatch(
+            encoder_inputs, generator_inputs, targets, labels, lenghts)
 
     def _runBatch(
             self, encoder_inputs, generator_input, targets, labels, lenghts):
-        # print(labels)
         positiveIndex = np.nonzero(labels)
         negativeIndex = np.where(labels == 0)[0]
         tensorLabels = torch.FloatTensor(labels).to(device)

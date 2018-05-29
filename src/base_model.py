@@ -31,4 +31,5 @@ class BaseModel(nn.Module):
         print("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
             index, len(trainBatches), evaluationLoss))
         if evaluationLoss < bestLoss:
+            bestLoss = evaluationLoss
             torch.save(self.state_dict(), self.params.savefile)
