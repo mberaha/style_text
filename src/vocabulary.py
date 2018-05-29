@@ -40,7 +40,7 @@ class Vocabulary(object):
             return
 
         self.embeddings = torch.nn.Embedding(
-            self.vocabSize + 1, self.embeddingSize).to(device)
+            self.vocabSize, self.embeddingSize).to(device)
 
     def getSentenceIds(self, words):
         unkId = self.word2id['<unk>']
