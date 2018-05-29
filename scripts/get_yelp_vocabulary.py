@@ -5,6 +5,7 @@ Most common words get lower indices for memory efficiency
 import argparse
 import glob
 import pickle
+import re
 from collections import Counter
 
 
@@ -19,7 +20,8 @@ if __name__ == "__main__":
     for fileName in fileNames:
         with open(fileName, 'r') as fp:
             text = fp.read()
-
+        text = text.strip()
+        text = re.sub("\n", " ", text)
         vocabulary.update(text.split(" "))
 
     wordsAndCounts = sorted(

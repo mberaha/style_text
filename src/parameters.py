@@ -1,8 +1,8 @@
 class DiscriminatorParams(object):
     def __init__(self, embedding_size):
         self.in_channels = 1
-        self.out_channels = 3  # to check
-        self.kernel_sizes = [1, 2, 3]  # to check
+        self.out_channels = 3  # default in paper=128
+        self.kernel_sizes = [1,2, 3]  # default in paper=[1, 2, 3]
         self.embedding_size = embedding_size
         self.hidden_size = 5
         self.dropout = 0.5
@@ -26,8 +26,10 @@ class Params(object):
     embedding_size = 200
     dim_y = 200
     dim_z = 500
-    batch_size = 128
+    batch_size = 12
+    epochs = 2  # 2 for debugging, then go to 10
     temperature = 0.001
     lambda_GAN = 1
+    savefile = "data/yelp/model"
     autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
     discriminator = DiscriminatorParams(embedding_size)
