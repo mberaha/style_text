@@ -89,16 +89,23 @@ class StyleTransfer(BaseModel):
         out, hidden = self.encoder(tokens, hiddens, lenghts)
         return hidden[:, :, self.params.dim_y:]
 
-    def _generateTokens(self, tokens, h0, lenghts):
+    def _generateTokens(self, tokens, h0, lenghts, evaluation):
+
+        if evaluation:
+            size = self.eval_size
+        else:
+            size = self.params.batch_size
+
         hidden = h0
         generatedVocabs = torch.zeros(
-            self.params.batch_size, len(tokens), self.vocabulary.vocabSize + 1,
+            size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
         output, hidden = self.generator(tokens, hidden, lenghts)
         generatedVocabs = self.hiddenToVocab(output)
         return generatedVocabs, output
 
-    def _generateWithPrevOutput(self, h0, max_length, lengths, soft=True):
+    def _generateWithPrevOutput(
+            self, h0, max_length, lengths, evaluation, soft=True):
         """
         Implements professor teaching for the generator,transforming outputs
         at each time t to a curren token representing a weighted average
@@ -110,13 +117,17 @@ class StyleTransfer(BaseModel):
         hiddens -- of shape (max_length, 1, hidden_size).
                     If length<max_length it ends with zeros.
         """
+        if evaluation:
+            size = self.eval_size
+        else:
+            size = self.params.batch_size
+
         hidden = h0
-        hiddens = torch.zeros(
-            self.params.batch_size,
-            max_length,
-            self.params.autoencoder.hidden_size, device=device)
+        hiddens = torch.zeros(size, max_length,
+                              self.params.autoencoder.hidden_size,
+                              device=device)
         goEmbedding = self.vocabulary.getEmbedding(['<go>']).squeeze(0)
-        currTokens = goEmbedding.repeat(self.params.batch_size, 1)
+        currTokens = goEmbedding.repeat(size, 1)
         currTokens = currTokens.unsqueeze(1)
 
         softmax = torch.nn.Softmax()
@@ -177,23 +188,31 @@ class StyleTransfer(BaseModel):
         return encoder_inputs, generator_inputs, targets, lengths
 
     def _computeLosses(
-            self, encoder_inputs, generator_inputs, targets, labels, lenghts):
+            self, encoder_inputs, generator_inputs,
+            targets, labels, lenghts, evaluation=False):
         self.losses = defaultdict(float)
         self._runBatch(
-            encoder_inputs, generator_inputs, targets, labels, lenghts)
+            encoder_inputs, generator_inputs,
+            targets, labels, lenghts, evaluation)
 
     def _runBatch(
-            self, encoder_inputs, generator_input, targets, labels, lenghts):
+            self, encoder_inputs, generator_input,
+            targets, labels, lenghts, evaluation):
+
+        if evaluation:
+            size = self.eval_size
+            labels = np.array(labels)
+        else:
+            size = self.params.batch_size
+
         positiveIndex = np.nonzero(labels)
         negativeIndex = np.where(labels == 0)[0]
         tensorLabels = torch.FloatTensor(labels).to(device)
         tensorLabels = tensorLabels.unsqueeze(1)
         initialHiddens = self.labelsTransform(tensorLabels)
         initialHiddens = initialHiddens.unsqueeze(0)
-        initialHiddens = torch.cat(
-            (initialHiddens,
-             torch.zeros(1, self.params.batch_size, self.params.dim_z, device=device)),
-            dim=2)
+        zeros = torch.zeros(1, size, self.params.dim_z, device=device)
+        initialHiddens = torch.cat((initialHiddens, zeros), dim=2)
         content = self._encodeTokens(encoder_inputs, initialHiddens, lenghts)
 
         # generating the hidden states (yp, zp)
@@ -210,7 +229,7 @@ class StyleTransfer(BaseModel):
 
         # reconstruction loss
         generatorOutputs, h_teacher = self._generateTokens(
-            generator_input, originalHiddens, lenghts)
+            generator_input, originalHiddens, lenghts, evaluation)
         # re-pack padded sequence for computing losses
         packedGenOutput = nn.utils.rnn.pack_padded_sequence(
             generatorOutputs, lenghts, batch_first=True)[0]
@@ -220,7 +239,8 @@ class StyleTransfer(BaseModel):
 
         # adversarial losses
         h_professor = self._generateWithPrevOutput(
-            transformedHiddens, self.params.max_length, lenghts, soft=True)
+            transformedHiddens, self.params.max_length,
+            lenghts, evaluation, soft=True)
 
         # negative sentences
         d_loss, g_loss = self.adversarialLoss(
@@ -239,6 +259,7 @@ class StyleTransfer(BaseModel):
         self.losses['generator'] += g_loss
 
     def trainOnBatch(self, sentences, labels):
+
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
@@ -249,7 +270,7 @@ class StyleTransfer(BaseModel):
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
-        self.losses['autoencoder'] /= len(sentences)
+        # self.losses['autoencoder'] /= len(sentences)
 
         self.losses['autoencoder'].backward(retain_graph=True)
         self.autoencoder_optimizer.step()
@@ -267,12 +288,15 @@ class StyleTransfer(BaseModel):
         return self.losses['autoencoder']
 
     def evaluate(self, sentences, labels):
+        self.eval_size = len(sentences)
         self.eval()
         self.losses = defaultdict(float)
-        encoder_inputs, generator_inputs, targets = \
+        encoder_inputs, generator_inputs, targets, lengths = \
             self._sentencesToInputs(sentences)
 
-        self._computeLosses(encoder_inputs, generator_inputs, targets, labels)
+        self._computeLosses(
+            encoder_inputs, generator_inputs,
+            targets, labels, lengths, evaluation=True)
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']

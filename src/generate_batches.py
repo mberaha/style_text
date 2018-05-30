@@ -38,6 +38,8 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
             lines = fp.readlines()
 
         lines = list(map(lambda x: x[:-1], lines))
+        # the last line is always an empty line
+        lines = lines[:-1]
         lenLines.append(len(lines))
         if shuffleFiles:
             lines = shuffle(lines)
@@ -46,10 +48,11 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
 
     if batchsize < 0:
         labels = []
+        sentences = []
         for index, examples in enumerate(inputs):
+            sentences.extend(examples)
             labels.extend([index] * len(examples))
-        inputs = itertools.chain(*inputs)
-        return inputs, labels
+        return sentences, labels
 
     batches = []
     iterStep = batchsize // len(inputs)
