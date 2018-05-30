@@ -28,10 +28,13 @@ if __name__ == "__main__":
     vocab.initializeEmbeddings(params.embedding_size)
 
     model = StyleTransfer(params, vocab)
-    # if torch.cuda.is_available():
-    #     model = model.cuda()
+    if torch.cuda.is_available():
+        model = model.cuda()
     trainFiles = glob.glob(args.train_files)
     trainBatches = batchesFromFiles(trainFiles, params.batch_size, True)
     validFiles = glob.glob(args.evaluation_files)
     validSet = batchesFromFiles(validFiles, -1, inMemory=True)
+    # print("trainbatches:", trainBatches[0][0])
+    # print("validSet len:", len(validSet)) #2
+    # print("validSet:", validSet[1]) #40
     model.trainModel(trainBatches, validSet)
