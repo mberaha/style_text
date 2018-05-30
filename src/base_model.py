@@ -17,9 +17,9 @@ class BaseModel(nn.Module):
         for epoch in range(self.params.epochs):
             if shuffle:
                 random.shuffle(trainBatches)
-            self.runEpoch(trainBatches, validBatch)
+            self.runEpoch(trainBatches, validBatch, epoch)
 
-    def runEpoch(self, trainBatches, validBatch):
+    def runEpoch(self, trainBatches, validBatch, epoch):
         bestLoss = self._MAX_LOSS
         progbar = tqdm(range(len(trainBatches)))
         for index in progbar:
@@ -27,9 +27,11 @@ class BaseModel(nn.Module):
             loss = self.trainOnBatch(inputs, labels)
             progbar.set_description("Loss: {0}".format(loss))
 
-        evaluationLoss = self.evaluate(*validBatch)
+        sentences = validBatch[0]
+        labels = validBatch[1]
+        evaluationLoss = self.evaluate(sentences, labels)
         print("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
-            index, len(trainBatches), evaluationLoss))
+            epoch, self.params.epochs, evaluationLoss))
         if evaluationLoss < bestLoss:
             bestLoss = evaluationLoss
             torch.save(self.state_dict(), self.params.savefile)
