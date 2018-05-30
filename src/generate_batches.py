@@ -59,7 +59,8 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
         for label, class_inputs in enumerate(inputs):
             currInputs.extend(class_inputs[index:index + iterStep])
             currLabels.extend([label] * iterStep)
-        batches.append((currInputs, currLabels))
+        if len(currLabels) == batchsize:
+            batches.append((currInputs, currLabels))
     return batches
 
 
