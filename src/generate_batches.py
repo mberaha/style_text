@@ -65,7 +65,7 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
             currLabels.extend([label] * iterStep)
         print("pre if: ", len(currLabels))
         if len(currLabels) == batchsize:
-            print("passa")
+            print("passa", len(currLabels))
             batches.append((currInputs, currLabels))
     return batches
 
