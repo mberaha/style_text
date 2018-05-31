@@ -21,6 +21,7 @@ class BaseModel(nn.Module):
 
     def runEpoch(self, trainBatches, validBatch, epoch):
         bestLoss = self._MAX_LOSS
+        print("beginning run epochs")
         progbar = tqdm(range(len(trainBatches)))
         for index in progbar:
             inputs, labels = trainBatches[index]
