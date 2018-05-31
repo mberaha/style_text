@@ -28,6 +28,7 @@ if __name__ == "__main__":
     vocab.loadVocabulary(args.vocabulary)
     vocab.initializeEmbeddings(params.embedding_size)
 
+    print("beginning train_yelp")
     model = StyleTransfer(params, vocab)
     if torch.cuda.is_available():
         model = model.cuda()
