@@ -56,14 +56,16 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
 
     batches = []
     iterStep = batchsize // len(inputs)
+    print("len iterstep: ", iterStep)
     for index in range(0, min(lenLines), iterStep):
         currInputs = []
         currLabels = []
         for label, class_inputs in enumerate(inputs):
             currInputs.extend(class_inputs[index:index + iterStep])
             currLabels.extend([label] * iterStep)
-            print(len(currInputs))
+        print("pre if: ", len(currLabels))
         if len(currLabels) == batchsize:
+            print("passa")
             batches.append((currInputs, currLabels))
     return batches
 

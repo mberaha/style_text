@@ -20,6 +20,7 @@ class BaseModel(nn.Module):
             self.runEpoch(trainBatches, validBatch, epoch)
 
     def runEpoch(self, trainBatches, validBatch, epoch):
+        # TODO risolvere visualizzazione doppia progbar
         bestLoss = self._MAX_LOSS
         print("beginning run epochs")
         progbar = tqdm(range(len(trainBatches)))
