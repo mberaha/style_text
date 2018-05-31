@@ -17,7 +17,8 @@ if __name__ == "__main__":
     # unCOMMENT this if running from environments like Notebooks, Hydrogen...
     import easydict
     args = easydict.EasyDict({
-            "train_files": "data/yelp/train/*",
+            # "train_files": "data/yelp/train/*",
+            "train_files": "data/yelp/dev/*",
             "evaluation_files": "data/yelp/dev/*",
             "vocabulary": "data/yelp/vocabulary.pickle"
     })
