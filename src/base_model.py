@@ -22,7 +22,6 @@ class BaseModel(nn.Module):
     def runEpoch(self, trainBatches, validBatch, epoch):
         # TODO risolvere visualizzazione doppia progbar
         bestLoss = self._MAX_LOSS
-        print("beginning run epochs")
         progbar = tqdm(range(len(trainBatches)))
         for index in progbar:
             inputs, labels = trainBatches[index]
@@ -31,6 +30,7 @@ class BaseModel(nn.Module):
 
         sentences = validBatch[0]
         labels = validBatch[1]
+        print("batchsize in runEpoch:", len(sentences))
         evaluationLoss = self.evaluate(sentences, labels)
         print("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
             epoch, self.params.epochs, evaluationLoss))
