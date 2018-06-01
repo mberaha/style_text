@@ -39,4 +39,5 @@ if __name__ == "__main__":
     # print("trainbatches:", trainBatches[0][0])
     # print("validSet len:", len(validSet)) #2
     # print("validSet:", validSet[1]) #40
+
     model.trainModel(trainBatches, validSet)
