@@ -259,7 +259,6 @@ class StyleTransfer(BaseModel):
         self.losses['generator'] += g_loss
 
     def trainOnBatch(self, sentences, labels):
-
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
@@ -311,4 +310,4 @@ class StyleTransfer(BaseModel):
             labels = batch[1]
             self.evaluateOnBatch(sentences, labels)
 
-        return self.losses['autoencoder'] / len(batches)
+        return self.losses['autoencoder']
