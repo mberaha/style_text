@@ -287,10 +287,8 @@ class StyleTransfer(BaseModel):
         self._zeroGradients()
         return self.losses['autoencoder']
 
-    def evaluate(self, sentences, labels):
+    def evaluateOnBatch(self, sentences, labels):
         self.eval_size = len(sentences)
-        self.eval()
-        self.losses = defaultdict(float)
         encoder_inputs, generator_inputs, targets, lengths = \
             self._sentencesToInputs(sentences)
 
@@ -305,4 +303,12 @@ class StyleTransfer(BaseModel):
         self.losses['discriminator0'] /= len(sentences)
         self.losses['discriminator1'] /= len(sentences)
 
-        return self.losses['autoencoder']
+    def evaluate(self, batches):
+        self.eval()
+        self.losses = defaultdict(float)
+        for batch in batches:
+            sentences = batch[0]
+            labels = batch[1]
+            self.evaluateOnBatch(sentences, labels)
+
+        return self.losses['autoencoder'] / len(batches)
