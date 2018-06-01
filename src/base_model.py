@@ -13,25 +13,23 @@ class BaseModel(nn.Module):
     def load(self):
         self.load_state_dict(self.params.savefile)
 
-    def trainModel(self, trainBatches, validBatch, shuffle=True):
+    def trainModel(self, trainBatches, validBatches, shuffle=True):
         for epoch in range(self.params.epochs):
             if shuffle:
                 random.shuffle(trainBatches)
-            self.runEpoch(trainBatches, validBatch, epoch)
+            self.runEpoch(trainBatches, validBatches, epoch)
 
-    def runEpoch(self, trainBatches, validBatch, epoch):
+    def runEpoch(self, trainBatches, validBatches, epoch):
         # TODO risolvere visualizzazione doppia progbar
         bestLoss = self._MAX_LOSS
         print("beginning run epochs")
         progbar = tqdm(range(len(trainBatches)))
-        for index in progbar:
-            inputs, labels = trainBatches[index]
-            loss = self.trainOnBatch(inputs, labels)
-            progbar.set_description("Loss: {0}".format(loss))
+        # for index in progbar:
+        #     inputs, labels = trainBatches[index]
+        #     loss = self.trainOnBatch(inputs, labels)
+        #     progbar.set_description("Loss: {0}".format(loss))
 
-        sentences = validBatch[0]
-        labels = validBatch[1]
-        evaluationLoss = self.evaluate(sentences, labels)
+        evaluationLoss = self.evaluate(validBatches)
         print("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
             epoch, self.params.epochs, evaluationLoss))
         if evaluationLoss < bestLoss:
