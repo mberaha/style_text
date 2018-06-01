@@ -259,7 +259,6 @@ class StyleTransfer(BaseModel):
         self.losses['generator'] += g_loss
 
     def trainOnBatch(self, sentences, labels):
-
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
