@@ -18,7 +18,7 @@ if __name__ == "__main__":
     import easydict
     args = easydict.EasyDict({
             # "train_files": "data/yelp/train/*",
-            "train_files": "data/yelp/dev/*",
+            "train_files": "data/yelp/train/*",
             "evaluation_files": "data/yelp/dev/*",
             "vocabulary": "data/yelp/vocabulary.pickle"
     })

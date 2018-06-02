@@ -29,8 +29,8 @@ class BaseModel(nn.Module):
             progbar.set_description("Loss: {0}".format(loss))
 
         evaluationLoss = self.evaluate(validBatches)
-        print("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
-            epoch, self.params.epochs, evaluationLoss))
+        tqdm.write("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
+            epoch + 1, self.params.epochs, evaluationLoss))
         if evaluationLoss < bestLoss:
             bestLoss = evaluationLoss
             torch.save(self.state_dict(), self.params.savefile)

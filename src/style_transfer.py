@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch import optim
 import torch.nn as nn
+import torch.nn.functional
 from collections import defaultdict
 from src.base_model import BaseModel
 from src.generate_batches import preprocessSentences
@@ -130,7 +131,6 @@ class StyleTransfer(BaseModel):
         currTokens = goEmbedding.repeat(size, 1)
         currTokens = currTokens.unsqueeze(1)
 
-        softmax = torch.nn.Softmax()
         for index in range(max_length):
             # generator need input (seq_len, batch_size, input_size)
             out, hidden = self.generator(currTokens, hidden, pad=False)
@@ -138,7 +138,8 @@ class StyleTransfer(BaseModel):
             hiddens[:, index, :] = hidden
 
             # TODO add dropout
-            vocabProbs = softmax(vocabLogits / self.params.temperature)
+            vocabProbs = nn.functional.softmax(
+                vocabLogits / self.params.temperature, dim=1)
             if soft:
                 currToken = torch.matmul(
                     vocabProbs, self.vocabulary.embeddings.weight)
@@ -147,7 +148,7 @@ class StyleTransfer(BaseModel):
                 currToken = self.vocabulary.getEmbedding([argmax])
 
         hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
-        return hiddens
+        return hiddens, currToken
 
     def adversarialLoss(self, x_real, x_fake, label):
         discriminator = self.discriminators[label]
@@ -238,7 +239,7 @@ class StyleTransfer(BaseModel):
             targets.view(-1))
 
         # adversarial losses
-        h_professor = self._generateWithPrevOutput(
+        h_professor, _ = self._generateWithPrevOutput(
             transformedHiddens, self.params.max_length,
             lenghts, evaluation, soft=True)
 
