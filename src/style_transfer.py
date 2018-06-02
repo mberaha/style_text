@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch import optim
 import torch.nn as nn
-import torch.nn.functional
+import torch.nn.functional as F
 from collections import defaultdict
 from src.base_model import BaseModel
 from src.generate_batches import preprocessSentences
@@ -80,18 +80,7 @@ class StyleTransfer(BaseModel):
         self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
         self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
-    def _encodeTokens(self, tokens, hiddens, lenghts):
-        """
-        This function takes as input a bach of lists of embeddings and returns
-        the variable z: the encoded content
-        Args:
-        hidden -- h0
-        """
-        out, hidden = self.encoder(tokens, hiddens, lenghts)
-        return hidden[:, :, self.params.dim_y:]
-
-    def _generateTokens(self, tokens, h0, lenghts, evaluation):
-
+    def _generateTokens(self, tokens, h0, lengths, evaluation):
         if evaluation:
             size = self.eval_size
         else:
@@ -101,7 +90,7 @@ class StyleTransfer(BaseModel):
         generatedVocabs = torch.zeros(
             size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
-        output, hidden = self.generator(tokens, hidden, lenghts)
+        output, hidden = self.generator(tokens, hidden, lengths)
         generatedVocabs = self.hiddenToVocab(output)
         return generatedVocabs, output
 
@@ -132,15 +121,16 @@ class StyleTransfer(BaseModel):
         currTokens = currTokens.unsqueeze(1)
 
         for index in range(max_length):
-            # generator need input (seq_len, batch_size, input_size)
+            # generate next hidden state and output
+            # generator needs input (seq_len, batch_size, input_size)
             out, hidden = self.generator(currTokens, hidden, pad=False)
             vocabLogits = self.hiddenToVocab(out[:, 0, :])
             hiddens[:, index, :] = hidden
 
             # TODO add dropout
-            vocabProbs = nn.functional.softmax(
-                vocabLogits / self.params.temperature, dim=1)
             if soft:
+                vocabProbs = F.softmax(
+                    vocabLogits / self.params.temperature, dim=1)
                 currToken = torch.matmul(
                     vocabProbs, self.vocabulary.embeddings.weight)
             else:
@@ -167,34 +157,15 @@ class StyleTransfer(BaseModel):
         loss_g = self.adv_loss_criterion(class_fake, labels)
         return loss_d, loss_g
 
-    def _zeroGradients(self):
-        self.autoencoder_optimizer.zero_grad()
-        self.discriminator0_optimizer.zero_grad()
-        self.discriminator1_optimizer.zero_grad()
-
-    def _sentencesToInputs(self, sentences):
-        # transform sentences into embeddings
-        sentences = list(map(lambda x: x.split(" "), sentences))
-        encoder_inputs, generator_inputs, targets, lengths = \
-            preprocessSentences(sentences)
-        encoder_inputs = torch.stack(list(map(
-            self.vocabulary.getEmbedding, encoder_inputs)))
-        generator_inputs = torch.stack(list(map(
-            self.vocabulary.getEmbedding, generator_inputs)))
-        targets = torch.stack(list(map(
-            self.vocabulary.getSentenceIds, targets)))
-        targets = nn.utils.rnn.pack_padded_sequence(
-            targets, lengths, batch_first=True)[0]
-
-        return encoder_inputs, generator_inputs, targets, lengths
-
-    def _computeLosses(
-            self, encoder_inputs, generator_inputs,
-            targets, labels, lenghts, evaluation=False):
-        self.losses = defaultdict(float)
-        self._runBatch(
-            encoder_inputs, generator_inputs,
-            targets, labels, lenghts, evaluation)
+    def _encodeTokens(self, tokens, hiddens, lenghts):
+        """
+        This function takes as input a bach of lists of embeddings and returns
+        the variable z: the encoded content
+        Args:
+        hidden -- h0
+        """
+        out, hidden = self.encoder(tokens, hiddens, lenghts)
+        return hidden[:, :, self.params.dim_y:]
 
     def _runBatch(
             self, encoder_inputs, generator_input,
@@ -258,6 +229,35 @@ class StyleTransfer(BaseModel):
             1)
         self.losses['discriminator1'] = d_loss
         self.losses['generator'] += g_loss
+
+    def _computeLosses(
+            self, encoder_inputs, generator_inputs,
+            targets, labels, lenghts, evaluation=False):
+        self.losses = defaultdict(float)
+        self._runBatch(
+            encoder_inputs, generator_inputs,
+            targets, labels, lenghts, evaluation)
+
+    def _zeroGradients(self):
+        self.autoencoder_optimizer.zero_grad()
+        self.discriminator0_optimizer.zero_grad()
+        self.discriminator1_optimizer.zero_grad()
+
+    def _sentencesToInputs(self, sentences):
+        # transform sentences into embeddings
+        sentences = list(map(lambda x: x.split(" "), sentences))
+        encoder_inputs, generator_inputs, targets, lengths = \
+            preprocessSentences(sentences)
+        encoder_inputs = torch.stack(list(map(
+            self.vocabulary.getEmbedding, encoder_inputs)))
+        generator_inputs = torch.stack(list(map(
+            self.vocabulary.getEmbedding, generator_inputs)))
+        targets = torch.stack(list(map(
+            self.vocabulary.getSentenceIds, targets)))
+        targets = nn.utils.rnn.pack_padded_sequence(
+            targets, lengths, batch_first=True)[0]
+
+        return encoder_inputs, generator_inputs, targets, lengths
 
     def trainOnBatch(self, sentences, labels):
         self.train()
