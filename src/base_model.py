@@ -5,7 +5,6 @@ from tqdm import tqdm
 
 
 class BaseModel(nn.Module):
-    _MAX_LOSS = 1e10
 
     def __init__(self):
         super().__init__()
@@ -21,7 +20,7 @@ class BaseModel(nn.Module):
 
     def runEpoch(self, trainBatches, validBatches, epoch):
         # TODO risolvere visualizzazione doppia progbar
-        bestLoss = self._MAX_LOSS
+        bestLoss = self.params.max_loss
         progbar = tqdm(range(len(trainBatches)))
         for index in progbar:
             inputs, labels = trainBatches[index]
