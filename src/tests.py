@@ -6,6 +6,13 @@ import numpy as np
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # %%
+beam_width = 3
+beam  = torch.FloatTensor([[1] for _ in range(beam_width)])
+beam.to(device)
+for state in beam:
+    print(state)
+
+# %%
 labels = np.array([0, 0, 1])
 print(labels)
 positiveIndex = np.nonzero(labels)

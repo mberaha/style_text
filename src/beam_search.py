@@ -1,39 +1,53 @@
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional af F
-from collections import defaultdict
-from src.rnn import Rnn
-from src.vocabulary import Vocabulary
+import torch.nn.functional as F
+from copy import deepcopy
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class BeamState(object):
-    def __init__(self, input, h, sentence, nll):
-        self.inp, self.h, self.sent, self.nll = h, input, sentence, nll
+
+    def __init__(self, word, h, sentence, nll):
+        """
+        Args:
+            word -- the id of the word charachterising the state
+            h -- the hidden state associated to that state
+            sentence -- a list of word ids (the past ids plus the current one)
+            nll -- the negative log likelihood corresponding to the sentence
+        """
+        self.word, self.h, self.sentence, self.nll = \
+            input, h, sentence, nll
 
 
 class Decoder(object):
 
-    def __init__(self, rnn, hiddenToVocab, vocabulary, max_length, beam_width):
-        super().__init__()
+    def __init__(self, rnn, hToVocab, vocabulary, max_length, beam_width):
         self.vocabulary = vocabulary
         self.max_length = max_length
         self.width = beam_width
         self.generator = rnn
-        self.hiddenToVocab = hiddenToVocab
+        self.hToVocab = hToVocab
 
-    def _decode(tokens, hidden):
-
+    def _decode(self, tokens, h):
+        """
+        Args:
+            tokens --
+            h --
+        Outputs:
+            logProbs --
+            indices --
+            h --
+        """
         # embedding nn lookup
         # currTokens = torch.matmul(
         #     vocabProbs, self.vocabulary.embeddings.weight)
 
         currTokens = tokens
-        currHiddens = hidden
-        # generate next hidden state and logit
+        currh = h
+        # generate next h state and logit
         # generator needs input (seq_len, batch_size, input_size)
-        out, hidden = self.generator(currTokens, currHidden, pad=False)
-        vocabLogits = self.hiddenToVocab(out[:, 0, :])
+        outs, h = self.generator(currTokens, currh, pad=False)
+        vocabLogits = self.hToVocab(outs[:, 0, :])
         # smooth logits into the probabilities of each word
         vocabProbs = F.softmax(
             vocabLogits / self.params.temperature, dim=1)
@@ -42,39 +56,51 @@ class Decoder(object):
         # take the beam_with most probable words
         logProbs, indices = torch.topk(logProbs, self.width, dim=-1)
 
-    def _beamDecode(self, h0, lengths):
+        return logProbs, indices, h
+
+    def _beamDecode(self, h0):
+        """
+        Returning the ids of the beam_width most probable sentences' words.
+
+        Args:
+            h0 -- the first hidden state of dim = dim_y + dim_z
+        """
 
         go = self.vocabulary.getEmbedding(['<go>']).squeeze(0)
         batch_size = len(h0)
-        init_state = BeamState(h0, [go]*batch_size,
+        init_state = BeamState([go]*batch_size, h0,
                                [[] for i in range(batch_size)], [0]*batch_size)
-        beam = [init_state]
-        for t in range(self.max_len):
-            exp = [[] for i in range(batch_size)]
+        beam = torch.FloatTensor([init_state])
+        beam.to(device)
+        for _ in range(self.max_len):
+            storeBeamLayer = torch.FloatTensor(
+                [[] for _ in range(batch_size)])
+            storeBeamLayer.to(device)
             for state in beam:
-                log_lh, indices, h = _decode(state.inp, state.h)
-                for i in range(batch_size):
-                    for l in range(self.beam_width):
-                        exp[i].append(
-                            BeamState(h[i], indices[i,l],
-                            state.sent[i] + [indices[i,l]],
-                            state.nll[i] - log_lh[i,l]))
+                logProbs, indices, h = self._decode(state.inp, state.h)
+                for b in range(batch_size):
+                    for w in range(self.beam_width):
+                        storeBeamLayer[b].append(
+                            BeamState(indices[b, w], h[b],
+                                      state.sentence[b] + [indices[b, w]],
+                                      state.nll[b] - logProbs[b, w]))
 
-            beam = [deepcopy(init_state) for _ in range(self.beam_width)]
-            for i in range(batch_size):
-                a = sorted(exp[i], key=lambda k: k.nll)
-                for k in range(self.beam_width):
-                    beam[k].h[i] = a[k].h
-                    beam[k].inp[i] = a[k].inp
-                    beam[k].sent[i] = a[k].sent
-                    beam[k].nll[i] = a[k].nll
-        return beam[0].sent
+            beam = torch.FloatTensor(
+                [deepcopy(init_state) for _ in range(self.beam_width)])
+            beam.to(device)
+            for b in range(batch_size):
+                # sort beam states by their probability (cumulated nll)
+                # TODO check if performance increase by dividing nll
+                # by number of words
+                sortedBeamLayer = sorted(storeBeamLayer[i], key=lambda k: k.nll)
+                for w in range(self.beam_width):
+                    beam[w].word[b] = sortedBeamLayer[w].word
+                    beam[w].h[b] = sortedBeamLayer[w].h
+                    beam[w].sentence[b] = sortedBeamLayer[w].sentence
+                    beam[w].nll[b] = sortedBeamLayer[w].nll
 
-    def rewrite(self, h0, lengths):
-
-        # decode sentences of word-ids through beam search
-        sentences = self._beamDecode(h0, lengths)
-        # convert word-ids to actual words
+        # Returning the ids of the beam_width most probable sentences' words.
+        sentences = beam[0].sent
         sentences = \
             [[self.vocabulary.id2word[i] for i in sent] for sent in sentences]
         # TODO strip the EOS
