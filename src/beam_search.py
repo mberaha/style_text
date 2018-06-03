@@ -16,7 +16,7 @@ class BeamState(object):
             nll -- the negative log likelihood corresponding to the sentence
         """
         self.word, self.h, self.sentence, self.nll = \
-            input, h, sentence, nll
+            word, h, sentence, nll
 
 
 class Decoder(object):
@@ -77,7 +77,7 @@ class Decoder(object):
                 [[] for _ in range(batch_size)])
             storeBeamLayer.to(device)
             for state in beam:
-                logProbs, indices, h = self._decode(state.inp, state.h)
+                logProbs, indices, h = self._decode(state.word, state.h)
                 for b in range(batch_size):
                     for w in range(self.beam_width):
                         storeBeamLayer[b].append(
@@ -92,7 +92,7 @@ class Decoder(object):
                 # sort beam states by their probability (cumulated nll)
                 # TODO check if performance increase by dividing nll
                 # by number of words
-                sortedBeamLayer = sorted(storeBeamLayer[i], key=lambda k: k.nll)
+                sortedBeamLayer = sorted(storeBeamLayer[b], key=lambda k: k.nll)
                 for w in range(self.beam_width):
                     beam[w].word[b] = sortedBeamLayer[w].word
                     beam[w].h[b] = sortedBeamLayer[w].h
