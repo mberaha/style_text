@@ -100,9 +100,11 @@ class StyleTransfer(BaseModel):
         Implements professor teaching for the generator,transforming outputs
         at each time t to a curren token representing a weighted average
         of the embeddings (if soft=True) or just the most probable one (else)
-        Params:
+
+        Args:
         h0 -- the first hidden state y + z of size (1, 1, hidden_size)
         max_length -- stops the generator after max_length tokens generated
+
         Output:
         hiddens -- of shape (max_length, 1, hidden_size).
                     If length<max_length it ends with zeros.
