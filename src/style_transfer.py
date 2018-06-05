@@ -139,7 +139,8 @@ class StyleTransfer(BaseModel):
             vocabLogits = self.hiddenToVocab(out[:, 0, :])
             hiddens[:, index, :] = hidden
 
-            # TODO add dropout
+            vocabLogits = torch.nn.functional.dropout(
+                vocabLogits, p=self.params.dropout)
             vocabProbs = nn.functional.softmax(
                 vocabLogits / self.params.temperature, dim=1)
             if soft:
