@@ -9,6 +9,7 @@ class BaseModel(nn.Module):
 
     def __init__(self):
         super().__init__()
+        self.iter = 0
 
     def load(self):
         self.load_state_dict(self.params.savefile)
@@ -24,8 +25,9 @@ class BaseModel(nn.Module):
         bestLoss = self._MAX_LOSS
         progbar = tqdm(range(len(trainBatches)))
         for index in progbar:
+            self.iter += 1
             inputs, labels = trainBatches[index]
-            loss = self.trainOnBatch(inputs, labels)
+            loss = self.trainOnBatch(inputs, labels, self.iter)
             progbar.set_description("Loss: {0}".format(loss))
 
         evaluationLoss = self.evaluate(validBatches)
