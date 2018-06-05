@@ -1,3 +1,5 @@
+import json
+import time
 import numpy as np
 import torch
 from torch import optim
@@ -65,8 +67,8 @@ class StyleTransfer(BaseModel):
              {'params': self.labelsTransform.parameters()},
              {'params': self.vocabulary.embeddings.parameters()},
              {'params': self.hiddenToVocab.parameters()}],
-            lr=params.autoencoder.learning_rate,
-            betas=params.autoencoder.betas)
+            lr=params.discriminator.learning_rate,
+            betas=params.discriminator.betas)
         self.discriminator0_optimizer = optim.Adam(
             self.discriminators[0].parameters(),
             lr=params.discriminator.learning_rate,
@@ -151,6 +153,7 @@ class StyleTransfer(BaseModel):
         return hiddens, currToken
 
     def adversarialLoss(self, x_real, x_fake, label):
+        ones = torch.ones((len(x_real), 1)).to(device)
         discriminator = self.discriminators[label]
         x_fake = x_fake.unsqueeze(1)
         x_real = x_real.unsqueeze(1)
@@ -164,7 +167,7 @@ class StyleTransfer(BaseModel):
         labels = labels.unsqueeze(1)
         loss_d = self.adv_loss_criterion(class_real, labels) + \
             self.adv_loss_criterion(class_fake, 1 - labels)
-        loss_g = self.adv_loss_criterion(class_fake, labels)
+        loss_g = self.adv_loss_criterion(class_fake, ones)
         return loss_d, loss_g
 
     def _zeroGradients(self):
@@ -187,6 +190,10 @@ class StyleTransfer(BaseModel):
             targets, lengths, batch_first=True)[0]
 
         return encoder_inputs, generator_inputs, targets, lengths
+
+    def printDebugLoss(self):
+        out = {k: float(v) for k, v in self.losses.items()}
+        print('Losses: \n{0}'.format(json.dumps(out, indent=4)))
 
     def _computeLosses(
             self, encoder_inputs, generator_inputs,
@@ -259,7 +266,7 @@ class StyleTransfer(BaseModel):
         self.losses['discriminator1'] = d_loss
         self.losses['generator'] += g_loss
 
-    def trainOnBatch(self, sentences, labels):
+    def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
@@ -270,18 +277,21 @@ class StyleTransfer(BaseModel):
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
-        # self.losses['autoencoder'] /= len(sentences)
+        self.losses['discriminator0'] /= len(sentences)
+        self.losses['discriminator1'] /= len(sentences)
+        self.losses['autoencoder'] /= len(sentences)
+        if iterNum % 200 == 0:
+            self.printDebugLoss()
+            time.sleep(0.5)
 
         self.losses['autoencoder'].backward(retain_graph=True)
         self.autoencoder_optimizer.step()
         self._zeroGradients()
 
-        self.losses['discriminator0'] /= len(sentences)
         self.losses['discriminator0'].backward(retain_graph=True)
         self.discriminator0_optimizer.step()
         self._zeroGradients()
 
-        self.losses['discriminator1'] /= len(sentences)
         self.losses['discriminator1'].backward()
         self.discriminator1_optimizer.step()
         self._zeroGradients()
