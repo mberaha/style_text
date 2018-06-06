@@ -1,5 +1,5 @@
 import json
-import time
+import logging
 import numpy as np
 import torch
 from torch import optim
@@ -194,7 +194,7 @@ class StyleTransfer(BaseModel):
 
     def printDebugLoss(self):
         out = {k: float(v) for k, v in self.losses.items()}
-        print('Losses: \n{0}'.format(json.dumps(out, indent=4)))
+        logging.debug('Losses: \n{0}'.format(json.dumps(out, indent=4)))
 
     def _computeLosses(
             self, encoder_inputs, generator_inputs,
@@ -281,9 +281,8 @@ class StyleTransfer(BaseModel):
         self.losses['discriminator0'] /= len(sentences)
         self.losses['discriminator1'] /= len(sentences)
         self.losses['autoencoder'] /= len(sentences)
-        if iterNum % 200 == 0:
+        if iterNum % 10 == 0:
             self.printDebugLoss()
-            time.sleep(0.5)
 
         self.losses['autoencoder'].backward(retain_graph=True)
         self.autoencoder_optimizer.step()

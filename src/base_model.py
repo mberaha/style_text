@@ -1,3 +1,4 @@
+import datetime
 import random
 import torch
 from torch import nn
@@ -5,8 +6,6 @@ from tqdm import tqdm
 
 
 class BaseModel(nn.Module):
-    _MAX_LOSS = 1e10
-
     def __init__(self):
         super().__init__()
         self.iter = 0
@@ -22,7 +21,6 @@ class BaseModel(nn.Module):
 
     def runEpoch(self, trainBatches, validBatches, epoch):
         # TODO risolvere visualizzazione doppia progbar
-        bestLoss = self._MAX_LOSS
         progbar = tqdm(range(len(trainBatches)))
         for index in progbar:
             self.iter += 1
@@ -33,6 +31,7 @@ class BaseModel(nn.Module):
         evaluationLoss = self.evaluate(validBatches)
         tqdm.write("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
             epoch + 1, self.params.epochs, evaluationLoss))
-        if evaluationLoss < bestLoss:
-            bestLoss = evaluationLoss
-            torch.save(self.state_dict(), self.params.savefile)
+        date = datetime.datetime.now().strftime("%Y-%m-%d")
+        fileName = '{0}-{1}-epoch_{2}-loss_{3}'.format(
+            self.params.savefile, date, index, "{0:4f}".format(evaluationLoss))
+        torch.save(self.state_dict(), fileName)
