@@ -281,7 +281,7 @@ class StyleTransfer(BaseModel):
         self.losses['discriminator0'] /= len(sentences)
         self.losses['discriminator1'] /= len(sentences)
         self.losses['autoencoder'] /= len(sentences)
-        if iterNum % 10 == 0:
+        if iterNum % 500 == 0:
             self.printDebugLoss()
 
         self.losses['autoencoder'].backward(retain_graph=True)
@@ -308,10 +308,10 @@ class StyleTransfer(BaseModel):
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
-        self.losses['autoencoder'] /= len(sentences)
+        self.losses['autoencoder']
 
-        self.losses['discriminator0'] /= len(sentences)
-        self.losses['discriminator1'] /= len(sentences)
+        self.losses['discriminator0']
+        self.losses['discriminator1']
 
     def evaluate(self, batches):
         self.eval()
