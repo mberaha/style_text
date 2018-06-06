@@ -26,7 +26,7 @@ class BaseModel(nn.Module):
             self.iter += 1
             inputs, labels = trainBatches[index]
             loss = self.trainOnBatch(inputs, labels, self.iter)
-            progbar.set_description("Loss: {0}".format(loss))
+            progbar.set_description("Loss: {0:.6f}".format(loss))
 
         evaluationLoss = self.evaluate(validBatches)
         tqdm.write("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
