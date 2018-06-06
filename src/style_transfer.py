@@ -281,7 +281,7 @@ class StyleTransfer(BaseModel):
         self.losses['discriminator0']
         self.losses['discriminator1']
         self.losses['autoencoder']
-        if iterNum % 10 == 0:
+        if iterNum % 500 == 0:
             self.printDebugLoss()
 
         self.losses['autoencoder'].backward(retain_graph=True)
