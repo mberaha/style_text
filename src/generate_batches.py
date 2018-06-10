@@ -1,3 +1,4 @@
+import copy
 import itertools
 from sklearn.utils import shuffle
 
@@ -37,6 +38,8 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
             lines = fp.readlines()
 
         lines = list(map(lambda x: x[:-1], lines))
+        # the last line is always an empty line
+        lines = lines[:-1]
         lenLines.append(len(lines))
         if shuffleFiles:
             lines = shuffle(lines)
@@ -45,10 +48,11 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
 
     if batchsize < 0:
         labels = []
+        sentences = []
         for index, examples in enumerate(inputs):
+            sentences.extend(examples)
             labels.extend([index] * len(examples))
-        inputs = itertools.chain(*inputs)
-        return inputs, labels
+        return sentences, labels
 
     batches = []
     iterStep = batchsize // len(inputs)
@@ -58,11 +62,12 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
         for label, class_inputs in enumerate(inputs):
             currInputs.extend(class_inputs[index:index + iterStep])
             currLabels.extend([label] * iterStep)
-        batches.append((currInputs, currLabels))
+        if len(currInputs) == batchsize:
+            batches.append((currInputs, currLabels))
     return batches
 
 
-def preprocessSentences(sentences):
+def preprocessSentences(sentences, padToMaxLen=True):
     def addGo(sentence):
         out = ['<go>']
         out.extend(sentence)
@@ -72,7 +77,22 @@ def preprocessSentences(sentences):
         sentence.append('<eos>')
         return sentence
 
-    encoder_inputs = sentences
-    decoder_inputs = [addGo(x) for x in sentences]
-    targets = [addEos(x) for x in sentences]
-    return encoder_inputs, decoder_inputs, targets
+    def addPad(sentence, maxLen):
+        currLen = len(sentence)
+        sentence.extend(['<pad>'] * (maxLen - currLen))
+        return sentence
+
+    sentences = sorted(sentences, key=len, reverse=True)
+    encoder_inputs = copy.deepcopy(sentences)
+    encoder_inputs = [addEos(x) for x in encoder_inputs]
+    decoder_inputs = copy.deepcopy(sentences)
+    decoder_inputs = [addGo(x) for x in decoder_inputs]
+    lengths = list(map(len, encoder_inputs))
+    targets = copy.deepcopy(encoder_inputs)
+    if padToMaxLen:
+        maxlen = len(encoder_inputs[0])
+        encoder_inputs = [addPad(x, maxlen) for x in encoder_inputs]
+        decoder_inputs = [addPad(x, maxlen) for x in decoder_inputs]
+        targets = [addPad(x, maxlen) for x in targets]
+
+    return encoder_inputs, decoder_inputs, targets, lengths
