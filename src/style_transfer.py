@@ -278,13 +278,23 @@ class StyleTransfer(BaseModel):
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
-        self.losses['discriminator0']
-        self.losses['discriminator1']
-        self.losses['autoencoder']
+
         if iterNum % 500 == 0:
             self.printDebugLoss()
 
         self.losses['autoencoder'].backward(retain_graph=True)
+
+        torch.nn.utils.clip_grad_norm_(
+            self.encoder.parameters(), self.params.grad_clip)
+        torch.nn.utils.clip_grad_norm_(
+            self.generator.parameters(), self.params.grad_clip)
+        torch.nn.utils.clip_grad_norm_(
+            self.labelsTransform.parameters(), self.params.grad_clip)
+        torch.nn.utils.clip_grad_norm_(
+            self.vocabulary.embeddings.parameters(), self.params.grad_clip)
+        torch.nn.utils.clip_grad_norm_(
+            self.hiddenToVocab.parameters(), self.params.grad_clip)
+
         self.autoencoder_optimizer.step()
         self._zeroGradients()
 
