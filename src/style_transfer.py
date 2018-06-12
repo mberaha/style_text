@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch import optim
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional
 from collections import defaultdict
 from src.base_model import BaseModel
 from src.generate_batches import preprocessSentences
@@ -82,7 +82,18 @@ class StyleTransfer(BaseModel):
         self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
         self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
-    def _generateTokens(self, tokens, h0, lengths, evaluation):
+    def _encodeTokens(self, tokens, hiddens, lenghts):
+        """
+        This function takes as input a bach of lists of embeddings and returns
+        the variable z: the encoded content
+        Args:
+        hidden -- h0
+        """
+        out, hidden = self.encoder(tokens, hiddens, lenghts)
+        return hidden[:, :, self.params.dim_y:]
+
+    def _generateTokens(self, tokens, h0, lenghts, evaluation):
+
         if evaluation:
             size = self.eval_size
         else:
@@ -92,7 +103,7 @@ class StyleTransfer(BaseModel):
         generatedVocabs = torch.zeros(
             size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
-        output, hidden = self.generator(tokens, hidden, lengths)
+        output, hidden = self.generator(tokens, hidden, lenghts)
         generatedVocabs = self.hiddenToVocab(output)
         return generatedVocabs, output
 
@@ -102,11 +113,9 @@ class StyleTransfer(BaseModel):
         Implements professor teaching for the generator,transforming outputs
         at each time t to a curren token representing a weighted average
         of the embeddings (if soft=True) or just the most probable one (else)
-
-        Args:
+        Params:
         h0 -- the first hidden state y + z of size (1, 1, hidden_size)
         max_length -- stops the generator after max_length tokens generated
-
         Output:
         hiddens -- of shape (max_length, 1, hidden_size).
                     If length<max_length it ends with zeros.
@@ -125,8 +134,7 @@ class StyleTransfer(BaseModel):
         currTokens = currTokens.unsqueeze(1)
 
         for index in range(max_length):
-            # generate next hidden state and output
-            # generator needs input (seq_len, batch_size, input_size)
+            # generator need input (seq_len, batch_size, input_size)
             out, hidden = self.generator(currTokens, hidden, pad=False)
             vocabLogits = self.hiddenToVocab(out[:, 0, :])
             hiddens[:, index, :] = hidden
@@ -136,8 +144,6 @@ class StyleTransfer(BaseModel):
             vocabProbs = nn.functional.softmax(
                 vocabLogits / self.params.temperature, dim=1)
             if soft:
-                vocabProbs = F.softmax(
-                    vocabLogits / self.params.temperature, dim=1)
                 currToken = torch.matmul(
                     vocabProbs, self.vocabulary.embeddings.weight)
             else:
