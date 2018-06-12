@@ -32,6 +32,6 @@ class Params(object):
     lambda_GAN = 1
     dropout = 0.5
     max_loss = 1e10
-    savefile = "data/yelp/model"
+    savefile = "data/models/yelp/final"
     autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
     discriminator = DiscriminatorParams(embedding_size)
