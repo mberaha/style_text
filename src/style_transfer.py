@@ -227,18 +227,18 @@ class StyleTransfer(BaseModel):
         # generating the hidden states (yp, zp)
         originalHiddens = self.labelsTransform(tensorLabels)
         originalHiddens = originalHiddens.unsqueeze(0)
-        originalHiddens = torch.cat(
+        self.originalHiddens = torch.cat(
             (originalHiddens, content), dim=2)
 
         # generating the hidden states with inverted labels (yq, zp)
         transformedHiddens = self.labelsTransform(1 - tensorLabels)
         transformedHiddens = transformedHiddens.unsqueeze(0)
-        transformedHiddens = torch.cat(
+        self.transformedHiddens = torch.cat(
             (transformedHiddens, content), dim=2)
 
         # reconstruction loss
         generatorOutputs, h_teacher = self._generateTokens(
-            generator_input, originalHiddens, lenghts, evaluation)
+            generator_input, self.originalHiddens, lenghts, evaluation)
         # re-pack padded sequence for computing losses
         packedGenOutput = nn.utils.rnn.pack_padded_sequence(
             generatorOutputs, lenghts, batch_first=True)[0]
@@ -248,24 +248,26 @@ class StyleTransfer(BaseModel):
 
         # adversarial losses
         h_professor, _ = self._generateWithPrevOutput(
-            transformedHiddens, self.params.max_length,
+            self.transformedHiddens, self.params.max_length,
             lenghts, evaluation, soft=True)
 
         # negative sentences
-        d_loss, g_loss = self.adversarialLoss(
-            h_teacher[negativeIndex],
-            h_professor[negativeIndex],
-            0)
-        self.losses['discriminator0'] = d_loss
-        self.losses['generator'] += g_loss
+        if len(negativeIndex):
+            d_loss, g_loss = self.adversarialLoss(
+                h_teacher[negativeIndex],
+                h_professor[negativeIndex],
+                0)
+            self.losses['discriminator0'] = d_loss
+            self.losses['generator'] += g_loss
 
         # positive sentences
-        d_loss, g_loss = self.adversarialLoss(
-            h_teacher[positiveIndex],
-            h_professor[positiveIndex],
-            1)
-        self.losses['discriminator1'] = d_loss
-        self.losses['generator'] += g_loss
+        if len(positiveIndex):
+            d_loss, g_loss = self.adversarialLoss(
+                h_teacher[positiveIndex],
+                h_professor[positiveIndex],
+                1)
+            self.losses['discriminator1'] = d_loss
+            self.losses['generator'] += g_loss
 
     def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
