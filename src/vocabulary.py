@@ -5,15 +5,18 @@ import logging
 import pickle
 import torch
 
+from torch import nn
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 _SPECIAL_TOKENS = ['<pad>', '<go>', '<eos>', '<unk>']
 
 
-class Vocabulary(object):
+class Vocabulary(nn.Module):
 
     def __init__(self):
         "vocabulary is a list of all the words we are interested into"
+        super().__init__()
         self.embeddings = None
         self.word2id = None
 
@@ -48,3 +51,6 @@ class Vocabulary(object):
     def getEmbedding(self, words):
         ids = self.getSentenceIds(words)
         return self.embeddings(ids)
+
+    def forward(self, inputs):
+        return self.getEmbedding(inputs)
