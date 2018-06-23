@@ -106,7 +106,7 @@ class Decoder(object):
         return sentences
 
     def rewriteBatch(self, sentences, labels):
-        self.model.evaluateOnBatch(sentences, labels)
+        self.model.transformBatch(sentences, labels)
         originalHiddens = self.model.originalHiddens
         transformedHiddens = self.model.transformedHiddens
         print("original hiddens shape:", originalHiddens.shape)
