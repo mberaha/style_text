@@ -99,18 +99,18 @@ class StyleTransfer(BaseModel):
         else:
             size = self.params.batch_size
 
-        print("tokens.shape:", tokens.shape)
-        print("h0.shape:", h0.shape)
-        print("len(lenghts):", lenghts)
+        # print("tokens.shape:", tokens.shape)
+        # print("h0.shape:", h0.shape)
+        # print("len(lenghts):", lenghts)
 
         hidden = h0
         generatedVocabs = torch.zeros(
             size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
         output, hidden = self.generator(tokens, hidden, lenghts)
-        print("output.shape:", output.shape)
+        # print("output.shape:", output.shape)
         generatedVocabs = self.hiddenToVocab(output)
-        print("generatedVocabs.shape:", generatedVocabs.shape)
+        # print("generatedVocabs.shape:", generatedVocabs.shape)
         return generatedVocabs, output
 
     def _generateWithPrevOutput(
