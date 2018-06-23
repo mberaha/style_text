@@ -99,26 +99,31 @@ class StyleTransfer(BaseModel):
         else:
             size = self.params.batch_size
 
+        # print("tokens.shape:", tokens.shape)
+        # print("h0.shape:", h0.shape)
+        # print("len(lenghts):", lenghts)
+
         hidden = h0
         generatedVocabs = torch.zeros(
             size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
         output, hidden = self.generator(tokens, hidden, lenghts)
+        # print("output.shape:", output.shape)
         generatedVocabs = self.hiddenToVocab(output)
         return generatedVocabs, output
 
     def _generateWithPrevOutput(
-            self, h0, max_length, lengths, evaluation, soft=True):
+            self, h0, max_len, lengths, evaluation, soft=True):
         """
         Implements professor teaching for the generator,transforming outputs
         at each time t to a curren token representing a weighted average
         of the embeddings (if soft=True) or just the most probable one (else)
         Params:
         h0 -- the first hidden state y + z of size (1, 1, hidden_size)
-        max_length -- stops the generator after max_length tokens generated
+        max_len -- stops the generator after max_len tokens generated
         Output:
-        hiddens -- of shape (max_length, 1, hidden_size).
-                    If length<max_length it ends with zeros.
+        hiddens -- of shape (max_len, 1, hidden_size).
+                    If length<max_len it ends with zeros.
         """
         if evaluation:
             size = self.eval_size
@@ -126,32 +131,50 @@ class StyleTransfer(BaseModel):
             size = self.params.batch_size
 
         hidden = h0
-        hiddens = torch.zeros(size, max_length,
+        hiddens = torch.zeros(size, max_len,
                               self.params.autoencoder.hidden_size,
                               device=device)
+        tokens = torch.zeros(size, max_len,
+                             self.params.embedding_size,
+                             device=device)
         goEmbedding = self.vocabulary(['<go>']).squeeze(0)
-        currTokens = goEmbedding.repeat(size, 1)
-        currTokens = currTokens.unsqueeze(1)
+        goEmbedding = goEmbedding.repeat(size, 1)
+        goEmbedding = goEmbedding.unsqueeze(1)
+        currTokens = goEmbedding
 
-        for index in range(max_length):
+        # print("_generateWithPrevOutput h0.shape:", h0.shape)
+        # print("_generateWithPrevOutput hiddens.shape:", hiddens.shape)
+        # print("_generateWithPrevOutput currTokens.shape:", currTokens.shape)
+
+        for index in range(max_len):
             # generator need input (seq_len, batch_size, input_size)
-            out, hidden = self.generator(currTokens, hidden, pad=False)
+            out, hidden = self.generator(
+                currTokens, hidden, lengths, pad=False)
+            # print("_generateWithPrevOutput out.shape:", out.shape)
             vocabLogits = self.hiddenToVocab(out[:, 0, :])
             hiddens[:, index, :] = hidden
 
-            vocabLogits = torch.nn.functional.dropout(
-                vocabLogits, p=self.params.dropout)
+            # dropping some values of the logits during training
+            if not evaluation:
+                vocabLogits = torch.nn.functional.dropout(
+                    vocabLogits, p=self.params.dropout)
+
             vocabProbs = nn.functional.softmax(
                 vocabLogits / self.params.temperature, dim=1)
             if soft:
-                currToken = torch.matmul(
+                currTokens = torch.matmul(
                     vocabProbs, self.vocabulary.embeddings.weight)
             else:
                 _, argmax = vocabProbs.max(1)
-                currToken = self.vocabulary([argmax])
+                currTokens = self.vocabulary([argmax])
+            currTokens = currTokens.unsqueeze(1)
+            tokens[:, index, :]
+
+            # print("_generateWithPrevOutput currTokens.shape:", currTokens.shape)
 
         hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
-        return hiddens, currToken
+        tokens = torch.cat((goEmbedding, tokens), dim=1)
+        return hiddens, currTokens
 
     def adversarialLoss(self, x_real, x_fake, label):
         ones = torch.ones((len(x_real), 1)).to(device)
@@ -236,6 +259,10 @@ class StyleTransfer(BaseModel):
         self.transformedHiddens = torch.cat(
             (transformedHiddens, content), dim=2)
 
+        # print("_runBatch content.shape:", content.shape)
+        # print("_runBatch self.originalHiddens.shape:", self.originalHiddens.shape)
+        # print("_runBatch self.transformedHiddens.shape:", self.transformedHiddens.shape)
+
         # reconstruction loss
         generatorOutputs, h_teacher = self._generateTokens(
             generator_input, self.originalHiddens, lenghts, evaluation)
@@ -248,7 +275,7 @@ class StyleTransfer(BaseModel):
 
         # adversarial losses
         h_professor, _ = self._generateWithPrevOutput(
-            self.transformedHiddens, self.params.max_length,
+            self.transformedHiddens, self.params.max_len,
             lenghts, evaluation, soft=True)
 
         # negative sentences
@@ -274,6 +301,9 @@ class StyleTransfer(BaseModel):
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
             self._sentencesToInputs(sentences)
+
+        # print("trainOnBatch encoder_inputs.shape:", encoder_inputs.shape)
+        # print("trainOnBatch generator_inputs.shape:", generator_inputs.shape)
         self._zeroGradients()
         self._computeLosses(
             encoder_inputs, generator_inputs, targets, labels, lenghts)
@@ -300,6 +330,7 @@ class StyleTransfer(BaseModel):
         return self.losses['autoencoder']
 
     def evaluateOnBatch(self, sentences, labels):
+        self.eval()
         self.eval_size = len(sentences)
         encoder_inputs, generator_inputs, targets, lengths = \
             self._sentencesToInputs(sentences)
@@ -316,7 +347,6 @@ class StyleTransfer(BaseModel):
         self.losses['discriminator1']
 
     def evaluate(self, batches):
-        self.eval()
         self.losses = defaultdict(float)
         for batch in batches:
             sentences = batch[0]
