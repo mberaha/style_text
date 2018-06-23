@@ -1,5 +1,4 @@
 import copy
-import itertools
 from sklearn.utils import shuffle
 
 
