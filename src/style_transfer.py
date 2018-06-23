@@ -99,17 +99,18 @@ class StyleTransfer(BaseModel):
         else:
             size = self.params.batch_size
 
-        # print("tokens.shape:", tokens.shape)
-        # print("h0.shape:", h0.shape)
-        # print("len(lenghts):", lenghts)
+        print("tokens.shape:", tokens.shape)
+        print("h0.shape:", h0.shape)
+        print("len(lenghts):", lenghts)
 
         hidden = h0
         generatedVocabs = torch.zeros(
             size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
         output, hidden = self.generator(tokens, hidden, lenghts)
-        # print("output.shape:", output.shape)
+        print("output.shape:", output.shape)
         generatedVocabs = self.hiddenToVocab(output)
+        print("generatedVocabs.shape:", generatedVocabs.shape)
         return generatedVocabs, output
 
     def _generateWithPrevOutput(
@@ -150,6 +151,7 @@ class StyleTransfer(BaseModel):
             # generator need input (seq_len, batch_size, input_size)
             out, hidden = self.generator(
                 currTokens, hidden, lengths, pad=False)
+            # print('hidden.shape: ', hidden.shape)
             # print("_generateWithPrevOutput out.shape:", out.shape)
             vocabLogits = self.hiddenToVocab(out[:, 0, :])
             hiddens[:, index, :] = hidden
@@ -167,9 +169,10 @@ class StyleTransfer(BaseModel):
             else:
                 _, argmax = vocabProbs.max(1)
                 currTokens = self.vocabulary([argmax])
+            tokens[:, index, :] = currTokens
+            # print('currTokens.shape before ', currTokens.shape)
             currTokens = currTokens.unsqueeze(1)
-            tokens[:, index, :]
-
+            # print('currTokens.shape after ', currTokens.shape)
             # print("_generateWithPrevOutput currTokens.shape:", currTokens.shape)
 
         hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
@@ -279,22 +282,20 @@ class StyleTransfer(BaseModel):
             lenghts, evaluation, soft=True)
 
         # negative sentences
-        if len(negativeIndex):
-            d_loss, g_loss = self.adversarialLoss(
-                h_teacher[negativeIndex],
-                h_professor[negativeIndex],
-                0)
-            self.losses['discriminator0'] = d_loss
-            self.losses['generator'] += g_loss
+        d_loss, g_loss = self.adversarialLoss(
+            h_teacher[negativeIndex],
+            h_professor[positiveIndex],
+            0)
+        self.losses['discriminator0'] = d_loss
+        self.losses['generator'] += g_loss
 
         # positive sentences
-        if len(positiveIndex):
-            d_loss, g_loss = self.adversarialLoss(
-                h_teacher[positiveIndex],
-                h_professor[positiveIndex],
-                1)
-            self.losses['discriminator1'] = d_loss
-            self.losses['generator'] += g_loss
+        d_loss, g_loss = self.adversarialLoss(
+            h_teacher[positiveIndex],
+            h_professor[negativeIndex],
+            1)
+        self.losses['discriminator1'] = d_loss
+        self.losses['generator'] += g_loss
 
     def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
