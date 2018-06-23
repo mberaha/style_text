@@ -230,18 +230,14 @@ class StyleTransfer(BaseModel):
             encoder_inputs, generator_inputs,
             targets, labels, lenghts, evaluation)
 
-    def _runBatch(
-            self, encoder_inputs, generator_input,
-            targets, labels, lenghts, evaluation):
-
+    def _computeHiddens(
+            self, encoder_inputs, generator_input, labels, lenghts, evaluation):
         if evaluation:
             size = self.eval_size
             labels = np.array(labels)
         else:
             size = self.params.batch_size
 
-        positiveIndex = np.nonzero(labels)
-        negativeIndex = np.where(labels == 0)[0]
         tensorLabels = torch.FloatTensor(labels).to(device)
         tensorLabels = tensorLabels.unsqueeze(1)
         initialHiddens = self.labelsTransform(tensorLabels)
@@ -262,10 +258,15 @@ class StyleTransfer(BaseModel):
         self.transformedHiddens = torch.cat(
             (transformedHiddens, content), dim=2)
 
-        # print("_runBatch content.shape:", content.shape)
-        # print("_runBatch self.originalHiddens.shape:", self.originalHiddens.shape)
-        # print("_runBatch self.transformedHiddens.shape:", self.transformedHiddens.shape)
+    def _runBatch(
+            self, encoder_inputs, generator_input,
+            targets, labels, lenghts, evaluation):
 
+        positiveIndex = np.nonzero(labels)
+        negativeIndex = np.where(labels == 0)[0]
+
+        self._computeHiddens(
+                encoder_inputs, generator_input, labels, lenghts, evaluation)
         # reconstruction loss
         generatorOutputs, h_teacher = self._generateTokens(
             generator_input, self.originalHiddens, lenghts, evaluation)
@@ -355,3 +356,11 @@ class StyleTransfer(BaseModel):
             self.evaluateOnBatch(sentences, labels)
 
         return self.losses['autoencoder']
+
+    def transformBatch(self, sentences, labels):
+        self.eval()
+        self.eval_size = len(sentences)
+        encoder_inputs, generator_inputs, _, lengths = \
+            self._sentencesToInputs(sentences)
+        self._computeHiddens(
+            encoder_inputs, generator_inputs, labels, lengths, evaluation=True)
