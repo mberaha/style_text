@@ -5,6 +5,15 @@ import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# %% packed sequences
+a = torch.Tensor([1, 2, 3])
+b = torch.Tensor([4, 5])
+c = torch.Tensor([6])
+lengths = list(map(len, [a, b, c]))
+padded= torch.nn.utils.rnn.pad_sequence([a, b, c])
+packed_padded =torch.nn.utils.rnn.pack_padded_sequence(padded, lengths)
+print(padded)
+print(packed_padded)
 # %%
 beam_width = 3
 beam  = torch.FloatTensor([[1] for _ in range(beam_width)])
@@ -107,3 +116,9 @@ input.grad
 
 torch.zeros(1, 1, 100, device='cpu')
 help(torch.zeros)
+
+# %%
+l = [10]*3
+l
+list(l)
+l

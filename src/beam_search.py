@@ -66,7 +66,6 @@ class Decoder(object):
         batch_size = h0.shape[1]
         go = torch.stack(list(map(
             self.model.vocabulary, ['go'] * batch_size)))
-        # go = self.model.vocabulary.getEmbedding(['<go>'] * batch_size)
         init_state = BeamState(
             go,
             h0,
@@ -110,6 +109,8 @@ class Decoder(object):
         self.model.evaluateOnBatch(sentences, labels)
         originalHiddens = self.model.originalHiddens
         transformedHiddens = self.model.transformedHiddens
+        print("original hiddens shape:", originalHiddens.shape)
+        print("transformed hiddens shape:", transformedHiddens.shape)
         original = self._beamDecode(originalHiddens)
         transformed = self._beamDecode(transformedHiddens)
         return original, transformed
