@@ -170,19 +170,20 @@ class StyleTransfer(BaseModel):
 
     def adversarialLoss(self, x_real, x_fake, label):
         ones = torch.ones((len(x_real), 1)).to(device)
+        zeros = torch.zeros((len(x_fake), 1)).to(device)
         discriminator = self.discriminators[label]
         x_fake = x_fake.unsqueeze(1)
         x_real = x_real.unsqueeze(1)
-        class_fake = discriminator(x_fake)
-        class_real = discriminator(x_real)
+        class_fake = discriminator(x_fake.detach())
+        class_real = discriminator(x_real.detach())
         class_fake = class_fake.squeeze(0)
         class_real = class_real.squeeze(0)
 
         labels = np.array([label] * x_real.shape[0])
         labels = torch.FloatTensor(labels).to(device)
         labels = labels.unsqueeze(1)
-        loss_d = self.adv_loss_criterion(class_real, labels) + \
-            self.adv_loss_criterion(class_fake, 1 - labels)
+        loss_d = self.adv_loss_criterion(class_real, ones) + \
+            self.adv_loss_criterion(class_fake, zeros)
         loss_g = self.adv_loss_criterion(class_fake, ones)
         return loss_d, loss_g
 
@@ -210,14 +211,6 @@ class StyleTransfer(BaseModel):
     def printDebugLoss(self):
         out = {k: float(v) for k, v in self.losses.items()}
         logging.debug('Losses: \n{0}'.format(json.dumps(out, indent=4)))
-
-    def _computeLosses(
-            self, encoder_inputs, generator_inputs,
-            targets, labels, lenghts, evaluation=False):
-        self.losses = defaultdict(float)
-        self._runBatch(
-            encoder_inputs, generator_inputs,
-            targets, labels, lenghts, evaluation)
 
     def _computeHiddens(
             self, encoder_inputs, generator_input, labels, lenghts, evaluation):
@@ -249,22 +242,31 @@ class StyleTransfer(BaseModel):
 
     def _runBatch(
             self, encoder_inputs, generator_input,
-            targets, labels, lenghts, evaluation):
+            targets, labels, lenghts, evaluation, which_params):
+        """
+        which_params - string 'd0' or 'd1' or 'eg'
+        """
+
+        self.losses = defaultdict(float)
 
         positiveIndex = np.nonzero(labels)
         negativeIndex = np.where(labels == 0)[0]
 
         self._computeHiddens(
                 encoder_inputs, generator_input, labels, lenghts, evaluation)
-        # reconstruction loss
+
         generatorOutputs, h_teacher = self._generateTokens(
             generator_input, self.originalHiddens, lenghts, evaluation)
-        # re-pack padded sequence for computing losses
-        packedGenOutput = nn.utils.rnn.pack_padded_sequence(
-            generatorOutputs, lenghts, batch_first=True)[0]
-        self.losses['reconstruction'] = self.rec_loss_criterion(
-            packedGenOutput.view(-1, self.vocabulary.vocabSize),
-            targets.view(-1))
+
+        # econder and generator's losses
+        if which_params == 'eg':
+            # re-pack padded sequence for computing losses
+            packedGenOutput = nn.utils.rnn.pack_padded_sequence(
+                generatorOutputs, lenghts, batch_first=True)[0]
+
+            self.losses['reconstruction'] = self.rec_loss_criterion(
+                packedGenOutput.view(-1, self.vocabulary.vocabSize),
+                targets.view(-1))
 
         # adversarial losses
         h_professor, _ = self._generateWithPrevOutput(
@@ -272,30 +274,22 @@ class StyleTransfer(BaseModel):
             lenghts, evaluation, soft=True)
 
         # negative sentences
-        d_loss, g_loss = self.adversarialLoss(
-            h_teacher[negativeIndex],
-            h_professor[positiveIndex],
-            0)
-        self.losses['discriminator0'] = d_loss
-        self.losses['generator'] += g_loss
+        if which_params in ['eg', 'd0']:
+            d_loss, g_loss = self.adversarialLoss(
+                h_teacher[negativeIndex],
+                h_professor[positiveIndex],
+                0)
+            self.losses['discriminator0'] = d_loss
+            self.losses['generator'] += g_loss
 
         # positive sentences
-        d_loss, g_loss = self.adversarialLoss(
-            h_teacher[positiveIndex],
-            h_professor[negativeIndex],
-            1)
-        self.losses['discriminator1'] = d_loss
-        self.losses['generator'] += g_loss
-
-    @staticmethod
-    def getNorm(parameters):
-        # This is a debug function, to be removed when everything is working
-        parameters = list(filter(lambda p: p.grad is not None, parameters))
-        total_norm = 0
-        for p in parameters:
-            param_norm = p.grad.data.norm(2)
-            total_norm += param_norm ** 2
-        return total_norm ** (1. / 2)
+        if which_params in ['eg', 'd1']:
+            d_loss, g_loss = self.adversarialLoss(
+                h_teacher[positiveIndex],
+                h_professor[negativeIndex],
+                1)
+            self.losses['discriminator1'] = d_loss
+            self.losses['generator'] += g_loss
 
     def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
@@ -305,12 +299,35 @@ class StyleTransfer(BaseModel):
 
         # print("trainOnBatch encoder_inputs.shape:", encoder_inputs.shape)
         # print("trainOnBatch generator_inputs.shape:", generator_inputs.shape)
-        self._zeroGradients()
-        self._computeLosses(
-            encoder_inputs, generator_inputs, targets, labels, lenghts)
 
-        self.losses['autoencoder'] = self.losses['reconstruction'] + \
-            self.params.lambda_GAN * self.losses['generator']
+        # compute losses for discriminator0 and optimize
+        self._zeroGradients()
+        self._runBatch(
+            encoder_inputs, generator_inputs, targets, labels, lenghts,
+            evaluation=False, which_params='d0')
+
+        self.losses['discriminator0'].backward()
+        self.discriminator0_optimizer.step()
+
+        # compute losses for discriminator1 and optimize
+        self._zeroGradients()
+        self._runBatch(
+            encoder_inputs, generator_inputs, targets, labels, lenghts,
+            evaluation=False, which_params='d1')
+
+        self.losses['discriminator1'].backward()
+        self.discriminator0_optimizer.step()
+
+        # compute losses for encoder and generator and optimize
+        self._zeroGradients()
+        self._runBatch(
+            encoder_inputs, generator_inputs, targets, labels, lenghts,
+            evaluation=False, which_params='eg')
+        self.losses['autoencoder'] = self.losses['reconstruction']
+        if self.losses['discriminator0'] < self.params.max_d_loss and \
+                self.losses['discriminator1'] < self.params.max_d_loss:
+            self.losses['autoencoder'] += \
+                self.params.lambda_GAN * self.losses['generator']
 
         if iterNum % 500 == 0:
             self.printDebugLoss()
@@ -325,15 +342,7 @@ class StyleTransfer(BaseModel):
             self.params.grad_clip)
 
         self.autoencoder_optimizer.step()
-        self._zeroGradients()
 
-        self.losses['discriminator0'].backward(retain_graph=True)
-        self.discriminator0_optimizer.step()
-        self._zeroGradients()
-
-        self.losses['discriminator1'].backward()
-        self.discriminator1_optimizer.step()
-        self._zeroGradients()
         return self.losses['autoencoder']
 
     def evaluateOnBatch(self, sentences, labels):
@@ -369,3 +378,13 @@ class StyleTransfer(BaseModel):
             self._sentencesToInputs(sentences)
         self._computeHiddens(
             encoder_inputs, generator_inputs, labels, lengths, evaluation=True)
+
+    @staticmethod
+    def getNorm(parameters):
+        # This is a debug function, to be removed when everything is working
+        parameters = list(filter(lambda p: p.grad is not None, parameters))
+        total_norm = 0
+        for p in parameters:
+            param_norm = p.grad.data.norm(2)
+            total_norm += param_norm ** 2
+            return total_norm ** (1. / 2)
