@@ -287,6 +287,16 @@ class StyleTransfer(BaseModel):
         self.losses['discriminator1'] = d_loss
         self.losses['generator'] += g_loss
 
+    @staticmethod
+    def getNorm(parameters):
+        # This is a debug function, to be removed when everything is working
+        parameters = list(filter(lambda p: p.grad is not None, parameters))
+        total_norm = 0
+        for p in parameters:
+            param_norm = p.grad.data.norm(2)
+            total_norm += param_norm ** 2
+        return total_norm ** (1. / 2)
+
     def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
         labels = np.array(labels)
@@ -301,13 +311,19 @@ class StyleTransfer(BaseModel):
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
-        self.losses['discriminator0']
-        self.losses['discriminator1']
-        self.losses['autoencoder']
+
         if iterNum % 500 == 0:
             self.printDebugLoss()
 
         self.losses['autoencoder'].backward(retain_graph=True)
+
+        torch.nn.utils.clip_grad_norm_(
+            [*self.encoder.parameters(), *self.generator.parameters(),
+             *self.labelsTransform.parameters(),
+             *self.vocabulary.embeddings.parameters(),
+             *self.hiddenToVocab.parameters()],
+            self.params.grad_clip)
+
         self.autoencoder_optimizer.step()
         self._zeroGradients()
 

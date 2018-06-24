@@ -33,5 +33,5 @@ class BaseModel(nn.Module):
             epoch + 1, self.params.epochs, evaluationLoss))
         date = datetime.datetime.now().strftime("%Y-%m-%d")
         fileName = '{0}-{1}-epoch_{2}-loss_{3}'.format(
-            self.params.savefile, date, index, "{0:4f}".format(evaluationLoss))
+            self.params.savefile, date, epoch, "{0:4f}".format(evaluationLoss))
         torch.save(self.state_dict(), fileName)
