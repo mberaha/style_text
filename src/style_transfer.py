@@ -99,22 +99,16 @@ class StyleTransfer(BaseModel):
         else:
             size = self.params.batch_size
 
-        # print("tokens.shape:", tokens.shape)
-        # print("h0.shape:", h0.shape)
-        # print("len(lenghts):", lenghts)
-
         hidden = h0
         generatedVocabs = torch.zeros(
             size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
         output, hidden = self.generator(tokens, hidden, lenghts)
-        # print("output.shape:", output.shape)
         generatedVocabs = self.hiddenToVocab(output)
-        # print("generatedVocabs.shape:", generatedVocabs.shape)
         return generatedVocabs, output
 
     def _generateWithPrevOutput(
-            self, h0, max_len, lengths, evaluation, soft=True):
+            self, h0, max_len, lengths=[], evaluation=False, soft=True):
         """
         Implements professor teaching for the generator,transforming outputs
         at each time t to a curren token representing a weighted average
@@ -135,24 +129,20 @@ class StyleTransfer(BaseModel):
         hiddens = torch.zeros(size, max_len,
                               self.params.autoencoder.hidden_size,
                               device=device)
-        tokens = torch.zeros(size, max_len,
-                             self.params.embedding_size,
-                             device=device)
+        if soft:
+            tokens = torch.zeros(
+                size, max_len, self.params.embedding_size, device=device)
+        else:
+            tokens = torch.zeros(size, max_len, device=device)
         goEmbedding = self.vocabulary(['<go>']).squeeze(0)
         goEmbedding = goEmbedding.repeat(size, 1)
         goEmbedding = goEmbedding.unsqueeze(1)
         currTokens = goEmbedding
 
-        # print("_generateWithPrevOutput h0.shape:", h0.shape)
-        # print("_generateWithPrevOutput hiddens.shape:", hiddens.shape)
-        # print("_generateWithPrevOutput currTokens.shape:", currTokens.shape)
-
         for index in range(max_len):
             # generator need input (seq_len, batch_size, input_size)
             out, hidden = self.generator(
                 currTokens, hidden, lengths, pad=False)
-            # print('hidden.shape: ', hidden.shape)
-            # print("_generateWithPrevOutput out.shape:", out.shape)
             vocabLogits = self.hiddenToVocab(out[:, 0, :])
             hiddens[:, index, :] = hidden
 
@@ -166,18 +156,17 @@ class StyleTransfer(BaseModel):
             if soft:
                 currTokens = torch.matmul(
                     vocabProbs, self.vocabulary.embeddings.weight)
+                tokens[:, index, :] = currTokens
             else:
                 _, argmax = vocabProbs.max(1)
-                currTokens = self.vocabulary([argmax])
-            tokens[:, index, :] = currTokens
-            # print('currTokens.shape before ', currTokens.shape)
+                tokens[:, index] = argmax
+                currTokens = self.vocabulary(argmax)
+
             currTokens = currTokens.unsqueeze(1)
-            # print('currTokens.shape after ', currTokens.shape)
-            # print("_generateWithPrevOutput currTokens.shape:", currTokens.shape)
 
         hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
-        tokens = torch.cat((goEmbedding, tokens), dim=1)
-        return hiddens, currTokens
+        # tokens = torch.cat((goEmbedding, tokens), dim=1)
+        return hiddens, tokens
 
     def adversarialLoss(self, x_real, x_fake, label):
         ones = torch.ones((len(x_real), 1)).to(device)
