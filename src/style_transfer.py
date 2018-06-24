@@ -328,7 +328,6 @@ class StyleTransfer(BaseModel):
         self.losses['autoencoder'] = self.losses['reconstruction']
         if d1Loss < self.params.max_d_loss and \
                 d0Loss < self.params.max_d_loss:
-
             self.losses['autoencoder'] += \
                 self.params.lambda_GAN * self.losses['generator']
 
@@ -356,16 +355,14 @@ class StyleTransfer(BaseModel):
         encoder_inputs, generator_inputs, targets, lengths = \
             self._sentencesToInputs(sentences)
 
-        self._computeLosses(
-            encoder_inputs, generator_inputs,
-            targets, labels, lengths, evaluation=True)
+        self._runBatch(
+            encoder_inputs, generator_inputs, targets, labels, lengths,
+            evaluation=True, which_params='eg')
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
-        self.losses['autoencoder']
 
-        self.losses['discriminator0']
-        self.losses['discriminator1']
+        return self.losses['autoencoder']
 
     def evaluate(self, batches):
         self.losses = defaultdict(float)
