@@ -256,6 +256,11 @@ class StyleTransfer(BaseModel):
         generatorOutputs, h_teacher = self._generateTokens(
             generator_input, self.originalHiddens, lengths, evaluation)
 
+        # adversarial losses
+        h_professor, _ = self._generateWithPrevOutput(
+            self.transformedHiddens, self.params.max_len,
+            lengths, evaluation, soft=True)
+
         # econder and generator's losses
         if which_params == 'eg':
             # re-pack padded sequence for computing losses
@@ -266,28 +271,33 @@ class StyleTransfer(BaseModel):
                 packedGenOutput.view(-1, self.vocabulary.vocabSize),
                 targets.view(-1))
 
-        # adversarial losses
-        h_professor, _ = self._generateWithPrevOutput(
-            self.transformedHiddens, self.params.max_len,
-            lengths, evaluation, soft=True)
+            d_loss, g_loss = self.adversarialLoss(
+                h_teacher[negativeIndex],
+                h_professor[positiveIndex],
+                0)
+            self.losses['generator'] += g_loss
+
+            d_loss, g_loss = self.adversarialLoss(
+                h_teacher[positiveIndex],
+                h_professor[negativeIndex],
+                1)
+            self.losses['generator'] += g_loss
 
         # negative sentences
-        if which_params in ['eg', 'd0']:
+        if which_params == 'd0':
             d_loss, g_loss = self.adversarialLoss(
                 h_teacher[negativeIndex],
                 h_professor[positiveIndex],
                 0)
             self.losses['discriminator0'] = d_loss
-            self.losses['generator'] += g_loss
 
         # positive sentences
-        if which_params in ['eg', 'd1']:
+        if which_params == 'd1':
             d_loss, g_loss = self.adversarialLoss(
                 h_teacher[positiveIndex],
                 h_professor[negativeIndex],
                 1)
             self.losses['discriminator1'] = d_loss
-            self.losses['generator'] += g_loss
 
     def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
@@ -305,7 +315,7 @@ class StyleTransfer(BaseModel):
             evaluation=False, which_params='d1')
 
         self.losses['discriminator1'].backward()
-        self.discriminator0_optimizer.step()
+        self.discriminator1_optimizer.step()
 
         # compute losses for discriminator0 and optimize
         self._zeroGradients()
