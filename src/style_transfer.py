@@ -300,15 +300,6 @@ class StyleTransfer(BaseModel):
         # print("trainOnBatch encoder_inputs.shape:", encoder_inputs.shape)
         # print("trainOnBatch generator_inputs.shape:", generator_inputs.shape)
 
-        # compute losses for discriminator0 and optimize
-        self._zeroGradients()
-        self._runBatch(
-            encoder_inputs, generator_inputs, targets, labels, lenghts,
-            evaluation=False, which_params='d0')
-
-        self.losses['discriminator0'].backward()
-        self.discriminator0_optimizer.step()
-
         # compute losses for discriminator1 and optimize
         self._zeroGradients()
         self._runBatch(
@@ -316,6 +307,15 @@ class StyleTransfer(BaseModel):
             evaluation=False, which_params='d1')
 
         self.losses['discriminator1'].backward()
+        self.discriminator0_optimizer.step()
+
+        # compute losses for discriminator0 and optimize
+        self._zeroGradients()
+        self._runBatch(
+            encoder_inputs, generator_inputs, targets, labels, lenghts,
+            evaluation=False, which_params='d0')
+
+        self.losses['discriminator0'].backward()
         self.discriminator0_optimizer.step()
 
         # compute losses for encoder and generator and optimize
