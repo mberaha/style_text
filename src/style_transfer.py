@@ -340,7 +340,7 @@ class StyleTransfer(BaseModel):
             self.losses['autoencoder'] += \
                 self.params.lambda_GAN * self.losses['generator']
 
-        if iterNum % 400 == 0:
+        if iterNum % 100 == 0:
             self.losses['discriminator1'] = d1Loss
             self.losses['discriminator0'] = d0Loss
             self.printDebugLoss()
