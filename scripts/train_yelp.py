@@ -22,6 +22,10 @@ if __name__ == "__main__":
             "train_file_negative": "data/yelp/train/negative_sentence.txt",
             "evaluation_file_positive": "data/yelp/dev/positive.txt",
             "evaluation_file_negative": "data/yelp/dev/negative.txt",
+            # "train_file_positive": "data/yelp/test/positive_sentence.txt",
+            # "train_file_negative": "data/yelp/test/negative_sentence.txt",
+            # "evaluation_file_positive": "data/yelp/test/positive_sentence.txt",
+            # "evaluation_file_negative": "data/yelp/test/negative_sentence.txt",
             "vocabulary": "data/yelp/vocabulary.pickle"
     })
 
@@ -46,5 +50,9 @@ if __name__ == "__main__":
         negativeFile=args.evaluation_file_negative,
         batchsize=params.batch_size,
         inMemory=True)
+
+    # print(trainBatches)
+    # print("len(trainBatches)", len(trainBatches))
+    # print("len(validSet)", len(validSet))
 
     model.trainModel(trainBatches, validSet)
