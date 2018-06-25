@@ -4,12 +4,14 @@ import src.parameters as pm
 import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(torch.__version__)
 
 # %%
-batch_size = 4
-negativeIndex = range(batch_size//2)
-positiveIndex = range(batch_size//2)
-
+batch_size =256
+negativeIndex = [i for i in range(batch_size//2)]
+positiveIndex = [k for k in range(batch_size//2, batch_size)]
+negativeIndex
+positiveIndex
 # %% torch.max
 t = torch.tensor([[ 0.6763,  0.7445, 9, -2.2369]])
 t.max(1)
@@ -124,8 +126,10 @@ t.squeeze(0)
 # %% loss
 loss = nn.CrossEntropyLoss()
 input = torch.randn(3, 5, requires_grad=True)
+input.shape
 input.grad
 target = torch.empty(3, dtype=torch.long).random_(5)
+target.shape
 output = loss(input, target)
 output.backward()
 input.grad
