@@ -1,6 +1,5 @@
 import argparse
 import easydict
-import glob
 import logging
 import torch
 from src.generate_batches import batchesFromFiles
@@ -37,12 +36,15 @@ if __name__ == "__main__":
         model = model.cuda()
 
     trainBatches = batchesFromFiles(
-        args.train_file_positive, args.train_file_negative,
-        params.batch_size, True)
+        positiveFile=args.train_file_positive,
+        negativeFile=args.train_file_negative,
+        batchsize=params.batch_size,
+        inMemory=True)
 
     validSet = batchesFromFiles(
-        args.evaluation_file_positive,
-        args.evaluation_file_negative,
-        params.batch_size, inMemory=True)
+        positiveFile=args.evaluation_file_positive,
+        negativeFile=args.evaluation_file_negative,
+        batchsize=params.batch_size,
+        inMemory=True)
 
     model.trainModel(trainBatches, validSet)

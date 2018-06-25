@@ -5,6 +5,15 @@ import numpy as np
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# %%
+batch_size = 4
+negativeIndex = range(batch_size//2)
+positiveIndex = range(batch_size//2)
+
+# %% torch.max
+t = torch.tensor([[ 0.6763,  0.7445, 9, -2.2369]])
+t.max(1)
+
 # %% packed sequences
 a = torch.Tensor([1, 2, 3])
 b = torch.Tensor([4, 5])
@@ -60,18 +69,25 @@ encoder = nn.GRU(
     params.autoencoder.hidden_size,
     params.autoencoder.num_layers, batch_first=True).to(device)
 
-input = torch.randn(5,1,params.autoencoder.input_size).to(device)
-initialHidden = torch.randn(params.dim_y).to(device)
-initialHidden = initialHidden.unsqueeze(0).unsqueeze(0)
+batch_size = 5
+max_len = 3
+
+input = torch.randn(
+    batch_size, max_len, params.autoencoder.input_size).to(device)
+initialHidden = torch.randn(
+     1, batch_size, params.dim_y).to(device)
+initialHidden.shape
 initialHidden = torch.cat(
-    (initialHidden, torch.zeros(1, 1, params.dim_z, device=device)), dim=2)
-max_length = 5
+    (initialHidden, torch.zeros(1, batch_size, params.dim_z, device=device)), dim=2)
+initialHidden.shape
 hiddens = torch.zeros(
-    max_length, 1, params.autoencoder.hidden_size, device=device)
+    max_len, batch_size, params.autoencoder.hidden_size, device=device)
 print(hiddens.shape)
 print(initialHidden.shape)
 print(input.shape)
 output, hn = encoder(input, initialHidden)
+print(output.shape)
+print(hn.shape)
 
 # %% criterions
 
