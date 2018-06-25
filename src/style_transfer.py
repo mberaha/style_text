@@ -35,7 +35,10 @@ class StyleTransfer(BaseModel):
             batch_first=True).to(device)
 
         # instantiating linear networks for hidden transformations
-        self.labelsTransform = torch.nn.Linear(1, params.dim_y).to(device)
+        self.encoderLabelsTransform = \
+            torch.nn.Linear(1, params.dim_y).to(device)
+        self.generatorLabelsTransform = \
+            torch.nn.Linear(1, params.dim_y).to(device)
         self.hiddenToVocab = torch.nn.Linear(
             params.autoencoder.hidden_size,
             self.vocabulary.vocabSize).to(device)
@@ -64,7 +67,8 @@ class StyleTransfer(BaseModel):
         self.autoencoder_optimizer = optim.Adam(
             [{'params': self.encoder.parameters()},
              {'params': self.generator.parameters()},
-             {'params': self.labelsTransform.parameters()},
+             {'params': self.encoderLabelsTransform.parameters()},
+             {'params': self.generatorLabelsTransform.parameters()},
              {'params': self.vocabulary.embeddings.parameters()},
              {'params': self.hiddenToVocab.parameters()}],
             lr=params.discriminator.learning_rate,
@@ -82,15 +86,6 @@ class StyleTransfer(BaseModel):
         self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
         self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
-    def _encodeTokens(self, tokens, hiddens, lenghts):
-        """
-        This function takes as input a bach of lists of embeddings and returns
-        the variable z: the encoded content
-        Args:
-        hidden -- h0
-        """
-        out, hidden = self.encoder(tokens, hiddens, lenghts)
-        return hidden[:, :, self.params.dim_y:]
 
     def _generateTokens(self, tokens, h0, lenghts, evaluation):
 
@@ -187,27 +182,6 @@ class StyleTransfer(BaseModel):
         loss_g = self.adv_loss_criterion(class_fake, ones)
         return loss_d, loss_g
 
-    def _zeroGradients(self):
-        self.autoencoder_optimizer.zero_grad()
-        self.discriminator0_optimizer.zero_grad()
-        self.discriminator1_optimizer.zero_grad()
-
-    def _sentencesToInputs(self, sentences):
-        # transform sentences into embeddings
-        sentences = list(map(lambda x: x.split(" "), sentences))
-        encoder_inputs, generator_inputs, targets, lengths = \
-            preprocessSentences(sentences)
-        encoder_inputs = torch.stack(list(map(
-            self.vocabulary, encoder_inputs)))
-        generator_inputs = torch.stack(list(map(
-            self.vocabulary, generator_inputs)))
-        targets = torch.stack(list(map(
-            self.vocabulary.getSentenceIds, targets)))
-        targets = nn.utils.rnn.pack_padded_sequence(
-            targets, lengths, batch_first=True)[0]
-
-        return encoder_inputs, generator_inputs, targets, lengths
-
     def printDebugLoss(self):
         out = {k: float(v) for k, v in self.losses.items()}
         logging.debug('Losses: \n{0}'.format(json.dumps(out, indent=4)))
@@ -222,23 +196,28 @@ class StyleTransfer(BaseModel):
 
         tensorLabels = torch.FloatTensor(labels).to(device)
         tensorLabels = tensorLabels.unsqueeze(1)
-        initialHiddens = self.labelsTransform(tensorLabels)
+        initialHiddens = self.encoderLabelsTransform(tensorLabels)
         initialHiddens = initialHiddens.unsqueeze(0)
         zeros = torch.zeros(1, size, self.params.dim_z, device=device)
         initialHiddens = torch.cat((initialHiddens, zeros), dim=2)
-        content = self._encodeTokens(encoder_inputs, initialHiddens, lenghts)
+        _, content = self.encoder(encoder_inputs, initialHiddens, lenghts)
+        content = content[:, :, self.params.dim_y:]
 
         # generating the hidden states (yp, zp)
-        originalHiddens = self.labelsTransform(tensorLabels)
+        originalHiddens = self.generatorLabelsTransform(tensorLabels)
         originalHiddens = originalHiddens.unsqueeze(0)
         self.originalHiddens = torch.cat(
             (originalHiddens, content), dim=2)
 
         # generating the hidden states with inverted labels (yq, zp)
-        transformedHiddens = self.labelsTransform(1 - tensorLabels)
+        transformedHiddens = self.generatorLabelsTransform(1 - tensorLabels)
         transformedHiddens = transformedHiddens.unsqueeze(0)
         self.transformedHiddens = torch.cat(
             (transformedHiddens, content), dim=2)
+
+        # print("content.shape", content.shape)
+        # print("transformedHiddens.shape", transformedHiddens.shape)
+        # print("self.transformedHiddens.shape", self.transformedHiddens.shape)
 
     def _runBatch(
             self, encoder_inputs, generator_input,
@@ -300,6 +279,27 @@ class StyleTransfer(BaseModel):
             self.losses['discriminator1'] = d_loss
             self.losses['generator'] += g_loss
 
+    def _zeroGradients(self):
+        self.autoencoder_optimizer.zero_grad()
+        self.discriminator0_optimizer.zero_grad()
+        self.discriminator1_optimizer.zero_grad()
+
+    def _sentencesToInputs(self, sentences):
+        # transform sentences into embeddings
+        sentences = list(map(lambda x: x.split(" "), sentences))
+        encoder_inputs, generator_inputs, targets, lengths = \
+            preprocessSentences(sentences)
+        encoder_inputs = torch.stack(list(map(
+            self.vocabulary, encoder_inputs)))
+        generator_inputs = torch.stack(list(map(
+            self.vocabulary, generator_inputs)))
+        targets = torch.stack(list(map(
+            self.vocabulary.getSentenceIds, targets)))
+        targets = nn.utils.rnn.pack_padded_sequence(
+            targets, lengths, batch_first=True)[0]
+
+        return encoder_inputs, generator_inputs, targets, lengths
+
     def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
         labels = np.array(labels)
@@ -308,16 +308,6 @@ class StyleTransfer(BaseModel):
 
         # print("trainOnBatch encoder_inputs.shape:", encoder_inputs.shape)
         # print("trainOnBatch generator_inputs.shape:", generator_inputs.shape)
-
-        # compute losses for discriminator1 and optimize
-        self._zeroGradients()
-        self._runBatch(
-            encoder_inputs, generator_inputs, targets, labels, lenghts,
-            evaluation=False, which_params='d1')
-
-        d1Loss = self.losses['discriminator1']
-        self.losses['discriminator1'].backward()
-        self.discriminator1_optimizer.step()
 
         # compute losses for discriminator0 and optimize
         self._zeroGradients()
@@ -328,6 +318,16 @@ class StyleTransfer(BaseModel):
         d0Loss = self.losses['discriminator0']
         self.losses['discriminator0'].backward()
         self.discriminator0_optimizer.step()
+
+        # compute losses for discriminator1 and optimize
+        self._zeroGradients()
+        self._runBatch(
+            encoder_inputs, generator_inputs, targets, labels, lenghts,
+            evaluation=False, which_params='d1')
+
+        d1Loss = self.losses['discriminator1']
+        self.losses['discriminator1'].backward()
+        self.discriminator1_optimizer.step()
 
         # compute losses for encoder and generator and optimize
         self._zeroGradients()
@@ -349,7 +349,8 @@ class StyleTransfer(BaseModel):
 
         torch.nn.utils.clip_grad_norm_(
             [*self.encoder.parameters(), *self.generator.parameters(),
-             *self.labelsTransform.parameters(),
+             *self.encoderLabelsTransform.parameters(),
+             *self.generatorLabelsTransform.parameters(),
              *self.vocabulary.embeddings.parameters(),
              *self.hiddenToVocab.parameters()],
             self.params.grad_clip)
