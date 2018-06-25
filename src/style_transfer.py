@@ -249,8 +249,14 @@ class StyleTransfer(BaseModel):
 
         self.losses = defaultdict(float)
 
-        positiveIndex = np.nonzero(labels)
-        negativeIndex = np.where(labels == 0)[0]
+        negativeIndex = [
+            i for i in range(self.params.batch_size//2)]
+        positiveIndex = [
+            i for i in range(self.params.batch_size//2, self.params.batch_size)]
+        # negativeIndex = np.where(labels == 0)[0]
+        # positiveIndex = np.nonzero(labels)
+        # print("positiveIndex:", positiveIndex)
+        # print("negativeIndex:", negativeIndex)
 
         self._computeHiddens(
                 encoder_inputs, generator_input, labels, lenghts, evaluation)
@@ -274,6 +280,9 @@ class StyleTransfer(BaseModel):
             lenghts, evaluation, soft=True)
 
         # negative sentences
+        # print("h_teacher[negativeIndex]",h_teacher[negativeIndex][0])
+        # print("h_professor[positiveIndex]",h_professor[positiveIndex][0])
+
         if which_params in ['eg', 'd0']:
             d_loss, g_loss = self.adversarialLoss(
                 h_teacher[negativeIndex],
