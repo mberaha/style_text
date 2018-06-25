@@ -1,5 +1,6 @@
 import json
 import logging
+from copy import deepcopy
 import numpy as np
 import torch
 from torch import optim
@@ -86,21 +87,24 @@ class StyleTransfer(BaseModel):
         self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
         self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
+    def adversarialLoss(self, x_real, x_fake, label):
+        ones = torch.ones((len(x_real), 1)).to(device)
+        zeros = torch.zeros((len(x_fake), 1)).to(device)
+        discriminator = self.discriminators[label]
+        x_fake = x_fake.unsqueeze(1)
+        x_real = x_real.unsqueeze(1)
+        class_fake = discriminator(x_fake.detach())
+        class_real = discriminator(x_real.detach())
+        class_fake = class_fake.squeeze(0)
+        class_real = class_real.squeeze(0)
 
-    def _generateTokens(self, tokens, h0, lenghts, evaluation):
-
-        if evaluation:
-            size = self.eval_size
-        else:
-            size = self.params.batch_size
-
-        hidden = h0
-        generatedVocabs = torch.zeros(
-            size, len(tokens), self.vocabulary.vocabSize + 1,
-            device=device)
-        output, hidden = self.generator(tokens, hidden, lenghts)
-        generatedVocabs = self.hiddenToVocab(output)
-        return generatedVocabs, output
+        labels = np.array([label] * x_real.shape[0])
+        labels = torch.FloatTensor(labels).to(device)
+        labels = labels.unsqueeze(1)
+        loss_d = self.adv_loss_criterion(class_real, ones) + \
+            self.adv_loss_criterion(class_fake, zeros)
+        loss_g = self.adv_loss_criterion(class_fake, ones)
+        return loss_d, loss_g
 
     def _generateWithPrevOutput(
             self, h0, max_len, lengths=[], evaluation=False, soft=True):
@@ -163,28 +167,26 @@ class StyleTransfer(BaseModel):
         # tokens = torch.cat((goEmbedding, tokens), dim=1)
         return hiddens, tokens
 
-    def adversarialLoss(self, x_real, x_fake, label):
-        ones = torch.ones((len(x_real), 1)).to(device)
-        zeros = torch.zeros((len(x_fake), 1)).to(device)
-        discriminator = self.discriminators[label]
-        x_fake = x_fake.unsqueeze(1)
-        x_real = x_real.unsqueeze(1)
-        class_fake = discriminator(x_fake.detach())
-        class_real = discriminator(x_real.detach())
-        class_fake = class_fake.squeeze(0)
-        class_real = class_real.squeeze(0)
+    def _generateTokens(self, tokens, h0, lenghts, evaluation):
 
-        labels = np.array([label] * x_real.shape[0])
-        labels = torch.FloatTensor(labels).to(device)
-        labels = labels.unsqueeze(1)
-        loss_d = self.adv_loss_criterion(class_real, ones) + \
-            self.adv_loss_criterion(class_fake, zeros)
-        loss_g = self.adv_loss_criterion(class_fake, ones)
-        return loss_d, loss_g
+        if evaluation:
+            size = self.eval_size
+        else:
+            size = self.params.batch_size
 
-    def printDebugLoss(self):
-        out = {k: float(v) for k, v in self.losses.items()}
-        logging.debug('Losses: \n{0}'.format(json.dumps(out, indent=4)))
+        hidden = h0
+        generatedVocabs = torch.zeros(
+            size, len(tokens), self.vocabulary.vocabSize + 1,
+            device=device)
+        output, hidden = self.generator(tokens, hidden, lenghts)
+
+        # dropping some values of the generator output during training
+        if not evaluation:
+            output = torch.nn.functional.dropout(
+                output, p=self.params.dropout)
+
+        generatedVocabs = self.hiddenToVocab(output)
+        return generatedVocabs, output
 
     def _computeHiddens(
             self, encoder_inputs, generator_input, labels, lenghts, evaluation):
@@ -249,9 +251,14 @@ class StyleTransfer(BaseModel):
             packedGenOutput = nn.utils.rnn.pack_padded_sequence(
                 generatorOutputs, lenghts, batch_first=True)[0]
 
+            # print("target.shape", targets.shape)
+            # print("targets.view(-1)", targets.view(-1).shape)
+            # print("packedGenOutput.shape", packedGenOutput.shape)
+
             self.losses['reconstruction'] = self.rec_loss_criterion(
                 packedGenOutput.view(-1, self.vocabulary.vocabSize),
                 targets.view(-1))
+            # print(self.losses['reconstruction'])
 
         # adversarial losses
         h_professor, _ = self._generateWithPrevOutput(
@@ -334,13 +341,13 @@ class StyleTransfer(BaseModel):
         self._runBatch(
             encoder_inputs, generator_inputs, targets, labels, lenghts,
             evaluation=False, which_params='eg')
-        self.losses['autoencoder'] = self.losses['reconstruction']
+        self.losses['autoencoder'] = self.losses['reconstruction'].clone()
         if d1Loss < self.params.max_d_loss and \
                 d0Loss < self.params.max_d_loss:
             self.losses['autoencoder'] += \
                 self.params.lambda_GAN * self.losses['generator']
 
-        if iterNum % 100 == 0:
+        if iterNum % 2 == 0:
             self.losses['discriminator1'] = d1Loss
             self.losses['discriminator0'] = d0Loss
             self.printDebugLoss()
@@ -390,6 +397,10 @@ class StyleTransfer(BaseModel):
             self._sentencesToInputs(sentences)
         self._computeHiddens(
             encoder_inputs, generator_inputs, labels, lengths, evaluation=True)
+
+    def printDebugLoss(self):
+        out = {k: float(v) for k, v in self.losses.items()}
+        logging.debug('Losses: \n{0}'.format(json.dumps(out, indent=4)))
 
     @staticmethod
     def getNorm(parameters):
