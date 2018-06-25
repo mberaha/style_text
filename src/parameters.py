@@ -34,6 +34,6 @@ class Params(object):
     max_loss = 1e10
     grad_clip = 20
     max_d_loss = 1.2
-    savefile = "data/yelp/model"
+    savefile = "data/models/yelp/model"
     autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
     discriminator = DiscriminatorParams(embedding_size)
