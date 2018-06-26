@@ -18,15 +18,15 @@ if __name__ == "__main__":
 
     # unCOMMENT this if running from environments like Notebooks, Hydrogen...
     args = easydict.EasyDict({
-            # "train_file_positive": "data/yelp/train/positive_sentence.txt",
-            # "train_file_negative": "data/yelp/train/negative_sentence.txt",
-            # "evaluation_file_positive": "data/yelp/dev/positive.txt",
-            # "evaluation_file_negative": "data/yelp/dev/negative.txt",
-            "train_file_positive": "data/yelp/test/positive_sentence.txt",
-            "train_file_negative": "data/yelp/test/negative_sentence.txt",
-            "evaluation_file_positive": "data/yelp/test/positive_sentence.txt",
-            "evaluation_file_negative": "data/yelp/test/negative_sentence.txt",
-            "vocabulary": "data/yelp/vocabulary.pickle"
+            "train_file_positive": "data/yelp/train/positive_sentence.txt",
+            "train_file_negative": "data/yelp/train/negative_sentence.txt",
+            "evaluation_file_positive": "data/yelp/dev/positive.txt",
+            "evaluation_file_negative": "data/yelp/dev/negative.txt",
+            # "train_file_positive": "data/yelp/test/positive_sentence.txt",
+            # "train_file_negative": "data/yelp/test/negative_sentence.txt",
+            # "evaluation_file_positive": "data/yelp/test/positive_sentence.txt",
+            # "evaluation_file_negative": "data/yelp/test/negative_sentence.txt",
+            # "vocabulary": "data/yelp/vocabulary.pickle"
     })
 
     params = Params()
