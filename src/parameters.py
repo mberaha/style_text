@@ -26,11 +26,11 @@ class Params(object):
     embedding_size = 200
     dim_y = 200
     dim_z = 500
-    batch_size = 4
-    epochs = 2  # 2 for debugging, then go to 10
+    batch_size = 256
+    epochs = 20  # 2 for debugging, then go to 10
     gamma_init = 0.1  # softmax(logit / gamma)
-    gamma_decay = 1
-    gamma_min = 0.1
+    # gamma_decay = 1
+    # gamma_min = 0.1
     lambda_GAN = 1
     dropout = 0.5
     max_loss = 1e10
