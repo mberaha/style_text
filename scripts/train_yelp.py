@@ -26,7 +26,7 @@ if __name__ == "__main__":
             # "train_file_negative": "data/yelp/test/negative_sentence.txt",
             # "evaluation_file_positive": "data/yelp/test/positive_sentence.txt",
             # "evaluation_file_negative": "data/yelp/test/negative_sentence.txt",
-            # "vocabulary": "data/yelp/vocabulary.pickle"
+            "vocabulary": "data/yelp/vocabulary.pickle"
     })
 
     params = Params()
