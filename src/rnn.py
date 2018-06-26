@@ -1,5 +1,7 @@
+import torch
 from torch import nn
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Rnn(nn.Module):
     def __init__(self, input_size, hidden_size, num_layers, batch_first):
@@ -28,3 +30,25 @@ class Rnn(nn.Module):
             output = nn.utils.rnn.pad_packed_sequence(
                 output, batch_first=self.batch_first)[0]
         return output, hidden
+
+
+def SoftSampleWord(dropout, embeddings, gamma):
+    """
+    Given the output of the generator, performs a dropout over it
+    and then apply the Gumbel_softmax trick
+    """
+    def GumbelSoftmax(logits, gamma, eps=1e-20):
+        U = torch.rand(logits.shape).to(device)
+        G = -torch.log(-torch.log(U + eps) + eps)
+        return nn.functional.softmax(
+            (logits + G) / gamma, dim=1)  # log(logits) is better???
+
+    def loop_func(output, hiddenToVocab):
+        out = torch.nn.functional.dropout(output, p=dropout)
+        vocabLogits = hiddenToVocab(out[:, 0, :])
+        vocabProbs = GumbelSoftmax(vocabLogits, gamma)
+        currTokens = torch.matmul(
+            vocabProbs, embeddings.weight)
+        return currTokens, vocabLogits
+
+    return loop_func
