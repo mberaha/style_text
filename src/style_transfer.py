@@ -1,6 +1,6 @@
+# TODO add dropout to the input of the GRU cells? Tianxiao does so
 import json
 import logging
-from copy import deepcopy
 import numpy as np
 import torch
 from torch import optim
@@ -9,7 +9,7 @@ import torch.nn.functional
 from collections import defaultdict
 from src.base_model import BaseModel
 from src.generate_batches import preprocessSentences
-from src.rnn import Rnn
+from src.rnn import Rnn, SoftSampleWord
 from src.discriminator import Cnn
 from src.vocabulary import Vocabulary
 
@@ -133,35 +133,25 @@ class StyleTransfer(BaseModel):
                 size, max_len, self.params.embedding_size, device=device)
         else:
             tokens = torch.zeros(size, max_len, device=device)
+
         goEmbedding = self.vocabulary(['<go>']).squeeze(0)
         goEmbedding = goEmbedding.repeat(size, 1)
         goEmbedding = goEmbedding.unsqueeze(1)
         currTokens = goEmbedding
+        softSampleFunction = SoftSampleWord(
+            dropout=self.params.dropout,
+            embeddings=self.vocabulary.embeddings,
+            gamma=self.params.gamma_init)
 
         for index in range(max_len):
             # generator need input (seq_len, batch_size, input_size)
-            out, hidden = self.generator(
+            output, hidden = self.generator(
                 currTokens, hidden, lengths, pad=False)
-            vocabLogits = self.hiddenToVocab(out[:, 0, :])
-            hiddens[:, index, :] = hidden
-
-            # dropping some values of the logits during training
-            if not evaluation:
-                vocabLogits = torch.nn.functional.dropout(
-                    vocabLogits, p=self.params.dropout)
-
-            vocabProbs = nn.functional.softmax(
-                vocabLogits / self.params.temperature, dim=1)
-            if soft:
-                currTokens = torch.matmul(
-                    vocabProbs, self.vocabulary.embeddings.weight)
-                tokens[:, index, :] = currTokens
-            else:
-                _, argmax = vocabProbs.max(1)
-                tokens[:, index] = argmax
-                currTokens = self.vocabulary(argmax)
-
+            currTokens, vocabLogits = softSampleFunction(
+                output=output,
+                hiddenToVocab=self.hiddenToVocab)
             currTokens = currTokens.unsqueeze(1)
+            hiddens[:, index, :] = hidden
 
         hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
         # tokens = torch.cat((goEmbedding, tokens), dim=1)
@@ -180,10 +170,10 @@ class StyleTransfer(BaseModel):
             device=device)
         output, hidden = self.generator(tokens, hidden, lenghts)
 
-        # dropping some values of the generator output during training
-        if not evaluation:
-            output = torch.nn.functional.dropout(
-                output, p=self.params.dropout)
+        # dropping some values of the generator output
+        # during both training and test
+        output = torch.nn.functional.dropout(
+            output, p=self.params.dropout)
 
         generatedVocabs = self.hiddenToVocab(output)
         return generatedVocabs, output
@@ -253,7 +243,7 @@ class StyleTransfer(BaseModel):
 
             self.losses['reconstruction'] = self.rec_loss_criterion(
                 packedGenOutput.view(-1, self.vocabulary.vocabSize),
-                targets.view(-1))
+                targets[0].view(-1))
 
         # adversarial losses
         h_professor, _ = self._generateWithPrevOutput(
@@ -287,6 +277,7 @@ class StyleTransfer(BaseModel):
         sentences = list(map(lambda x: x.split(" "), sentences))
         encoder_inputs, generator_inputs, targets, lengths = \
             preprocessSentences(sentences)
+        print('Lengths: ', len(lengths))
         encoder_inputs = torch.stack(list(map(
             self.vocabulary, encoder_inputs)))
         generator_inputs = torch.stack(list(map(
@@ -294,7 +285,7 @@ class StyleTransfer(BaseModel):
         targets = torch.stack(list(map(
             self.vocabulary.getSentenceIds, targets)))
         targets = nn.utils.rnn.pack_padded_sequence(
-            targets, lengths, batch_first=True)[0]
+            targets, lengths, batch_first=True)
 
         return encoder_inputs, generator_inputs, targets, lengths
 
@@ -338,7 +329,7 @@ class StyleTransfer(BaseModel):
             self.losses['autoencoder'] += \
                 self.params.lambda_GAN * self.losses['generator']
 
-        if iterNum % 2 == 0:
+        if iterNum % 200 == 0:
             self.losses['discriminator1'] = d1Loss
             self.losses['discriminator0'] = d0Loss
             self.printDebugLoss()
