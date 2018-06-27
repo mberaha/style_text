@@ -251,23 +251,14 @@ class StyleTransfer(BaseModel):
             packedGenOutput = nn.utils.rnn.pack_padded_sequence(
                 generatorOutputs, lenghts, batch_first=True)[0]
 
-            # print("target.shape", targets.shape)
-            # print("targets.view(-1)", targets.view(-1).shape)
-            # print("packedGenOutput.shape", packedGenOutput.shape)
-
             self.losses['reconstruction'] = self.rec_loss_criterion(
                 packedGenOutput.view(-1, self.vocabulary.vocabSize),
                 targets.view(-1))
-            # print(self.losses['reconstruction'])
 
         # adversarial losses
         h_professor, _ = self._generateWithPrevOutput(
             self.transformedHiddens, self.params.max_len,
             lenghts, evaluation, soft=True)
-
-        # negative sentences
-        # print("h_teacher[negativeIndex]",h_teacher[negativeIndex][0])
-        # print("h_professor[positiveIndex]",h_professor[positiveIndex][0])
 
         if which_params in ['eg', 'd0']:
             d_loss, g_loss = self.adversarialLoss(
