@@ -293,7 +293,7 @@ class StyleTransfer(BaseModel):
         targets = torch.stack(list(map(
             self.vocabulary.getSentenceIds, targets)))
         targets = nn.utils.rnn.pack_padded_sequence(
-            targets, lengths, batch_first=True)[0]
+            targets, lengths)[0]
 
         return encoder_inputs, generator_inputs, targets, lengths
 
