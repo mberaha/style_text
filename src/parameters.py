@@ -28,7 +28,9 @@ class Params(object):
     dim_z = 500
     batch_size = 256
     epochs = 20  # 2 for debugging, then go to 10
-    temperature = 0.001
+    gamma_init = 0.1  # softmax(logit / gamma)
+    # gamma_decay = 1
+    # gamma_min = 0.1
     lambda_GAN = 1
     dropout = 0.5
     max_loss = 1e10
