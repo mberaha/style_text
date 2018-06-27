@@ -48,9 +48,10 @@ class Vocabulary(nn.Module):
         ids = list(map(lambda x: self.word2id.get(x, unkId), words))
         return torch.LongTensor(ids).to(device)
 
-    def getEmbedding(self, words):
-        ids = self.getSentenceIds(words)
-        return self.embeddings(ids)
+    def getEmbedding(self, words, byWord):
+        if byWord:
+            words = self.getSentenceIds(words)
+        return self.embeddings(words)
 
-    def forward(self, inputs):
-        return self.getEmbedding(inputs)
+    def forward(self, inputs, byWord=True):
+        return self.getEmbedding(inputs, byWord)

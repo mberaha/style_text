@@ -1,3 +1,4 @@
+import time
 import torch
 import torch.nn.functional as F
 from copy import deepcopy
@@ -45,7 +46,8 @@ class Decoder(object):
         # generate next h state and logit
         # generator needs input (seq_len, batch_size, input_size)
         outs, h = self.model.generator(currTokens, currh, pad=False)
-        vocabLogits = self.model.hiddenToVocab(outs[:, 0, :])
+        vocabLogits = self.model.hiddenToVocab(h)
+        vocabLogits = vocabLogits[0]
         # smooth logits into the probabilities of each word
         vocabProbs = F.softmax(
             vocabLogits / self.params.temperature, dim=1)
@@ -53,8 +55,15 @@ class Decoder(object):
         logProbs = torch.log(vocabProbs)
         # take the beam_with most probable words
         logProbs, indices = torch.topk(logProbs, self.width, dim=-1)
-
         return logProbs, indices, h
+
+    def printDebug(self, storeBeamLayer):
+        for sent in storeBeamLayer:
+            for state in sent:
+                print(
+                    state.word,
+                    [self.model.vocabulary.id2word[int(x)] for x in list(state.sentence)],
+                    float(state.nll))
 
     def _beamDecode(self, h0):
         """
@@ -64,8 +73,7 @@ class Decoder(object):
             h0 -- the first hidden state of dim = dim_y + dim_z
         """
         batch_size = h0.shape[1]
-        go = torch.stack(list(map(
-            self.model.vocabulary, ['go'] * batch_size)))
+        go = ['<go>'] * batch_size
         init_state = BeamState(
             go,
             h0,
@@ -75,11 +83,17 @@ class Decoder(object):
         for _ in range(self.max_length):
             storeBeamLayer = [[] for _ in range(batch_size)]
             for state in beam:
-                logProbs, indices, h = self._decode(state.word, state.h)
+                # self.printDebug(storeBeamLayer)
+                # print('\n')
+
+                embs = self.model.vocabulary(state.word)
+                embs = embs.unsqueeze(1)
+                logProbs, indices, h = self._decode(embs, state.h)
                 for b in range(batch_size):
                     for w in range(self.width):
                         storeBeamLayer[b].append(
-                            BeamState(indices[b, w], h[:, b, ],
+                            BeamState(self.model.vocabulary.id2word[int(indices[b, w])],
+                                      h[:, b, :],
                                       state.sentence[b] + [indices[b, w]],
                                       state.nll[b] - logProbs[b, w]))
 
@@ -102,15 +116,13 @@ class Decoder(object):
             for sent in sentences]
         # TODO strip the EOS
         # sentences = strip_eos(sentences)
-
+        sentences = list(map(lambda x: " ".join(x), sentences))
         return sentences
 
     def rewriteBatch(self, sentences, labels):
         self.model.transformBatch(sentences, labels)
         originalHiddens = self.model.originalHiddens
         transformedHiddens = self.model.transformedHiddens
-        print("original hiddens shape:", originalHiddens.shape)
-        print("transformed hiddens shape:", transformedHiddens.shape)
         original = self._beamDecode(originalHiddens)
         transformed = self._beamDecode(transformedHiddens)
         return original, transformed

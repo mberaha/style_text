@@ -141,7 +141,7 @@ class StyleTransfer(BaseModel):
         softSampleFunction = SoftSampleWord(
             dropout=self.params.dropout,
             embeddings=self.vocabulary.embeddings,
-            gamma=self.params.gamma_init)
+            gamma=self.params.temperature)
 
         for index in range(max_len):
             # generator need input (seq_len, batch_size, input_size)
@@ -277,7 +277,6 @@ class StyleTransfer(BaseModel):
         sentences = list(map(lambda x: x.split(" "), sentences))
         encoder_inputs, generator_inputs, targets, lengths = \
             preprocessSentences(sentences)
-        print('Lengths: ', len(lengths))
         encoder_inputs = torch.stack(list(map(
             self.vocabulary, encoder_inputs)))
         generator_inputs = torch.stack(list(map(
