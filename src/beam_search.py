@@ -22,10 +22,10 @@ class BeamState(object):
 
 class BeamSearchDecoder(object):
 
-    def __init__(self, styleTransfer, max_length, beam_width, params):
+    def __init__(self, styleTransfer, params):
         self.model = styleTransfer
-        self.max_length = max_length
-        self.width = beam_width
+        self.max_length = params.max_len
+        self.width = params.beam_width
         self.params = params
 
     def _decode(self, tokens, h):

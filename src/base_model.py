@@ -15,12 +15,12 @@ class BaseModel(nn.Module):
         self.load_state_dict(checkpoint)
 
     def trainModel(self, trainBatches, validBatches, shuffle=True):
-        for epoch in range(self.params.epochs):
+        for epochIndex, epoch in enumerate(range(self.params.epochs)):
             if shuffle:
                 random.shuffle(trainBatches)
-            self.runEpoch(trainBatches, validBatches, epoch)
+            self.runEpoch(trainBatches, validBatches, epoch, epochIndex)
 
-    def runEpoch(self, trainBatches, validBatches, epoch):
+    def runEpoch(self, trainBatches, validBatches, epoch, epochIndex):
         # TODO risolvere visualizzazione doppia progbar
         progbar = tqdm(range(len(trainBatches)))
         for index in progbar:
@@ -29,7 +29,7 @@ class BaseModel(nn.Module):
             loss = self.trainOnBatch(inputs, labels, self.iter)
             progbar.set_description("Loss: {0:.6f}".format(loss))
 
-        evaluationLoss = self.evaluate(validBatches)
+        evaluationLoss = self.evaluate(validBatches, epochIndex)
         tqdm.write("Epoch {0}/{1}, Loss on evaluation set: {2}".format(
             epoch + 1, self.params.epochs, evaluationLoss))
         date = datetime.datetime.now().strftime("%Y-%m-%d")
