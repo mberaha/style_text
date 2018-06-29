@@ -119,54 +119,54 @@ class StyleTransfer(BaseModel):
         hiddens -- of shape (max_len, 1, hidden_size).
                     If length<max_len it ends with zeros.
         """
-        if evaluation:
-            size = self.eval_size
-        else:
-            size = self.params.batch_size
 
         hidden = h0
-        hiddens = torch.zeros(size, max_len,
-                              self.params.autoencoder.hidden_size,
-                              device=device)
+        hiddens = torch.zeros(
+            self.size, max_len, self.params.autoencoder.hidden_size,
+            device="cuda")
         if soft:
             tokens = torch.zeros(
-                size, max_len, self.params.embedding_size, device=device)
+                self.size, max_len, self.params.embedding_size, device="cuda")
         else:
-            tokens = torch.zeros(size, max_len, device=device)
+            tokens = torch.zeros(self.size, max_len, device="cuda")
 
         goEmbedding = self.vocabulary(['<go>']).squeeze(0)
-        goEmbedding = goEmbedding.repeat(size, 1)
+        goEmbedding = goEmbedding.repeat(self.size, 1)
         goEmbedding = goEmbedding.unsqueeze(1)
         currTokens = goEmbedding
         softSampleFunction = SoftSampleWord(
             dropout=self.params.dropout,
             embeddings=self.vocabulary.embeddings,
-            gamma=self.params.temperature)
+            gamma=self.params.gamma_init)
 
-        for index in range(max_len):
-            # generator need input (seq_len, batch_size, input_size)
-            output, hidden = self.generator(
-                currTokens, hidden, lengths, pad=False)
-            currTokens, vocabLogits = softSampleFunction(
-                output=output,
-                hiddenToVocab=self.hiddenToVocab)
-            currTokens = currTokens.unsqueeze(1)
-            hiddens[:, index, :] = hidden
+        if soft:
+
+            for index in range(max_len):
+                # generator need input (seq_len, batch_size, input_size)
+                output, hidden = self.generator(
+                    currTokens, hidden, pad=False)
+                currTokens, vocabLogits = softSampleFunction(
+                    output=output,
+                    hiddenToVocab=self.hiddenToVocab)
+                tokens[:, index, :] = currTokens
+                currTokens = currTokens.unsqueeze(1)
+                hiddens[:, index, :] = hidden
+
+        else:
+            for index in range(max_len):
+                output, hidden = self.generator(currTokens, hidden, pad=False)
+                vocabLogit = self.hiddenToVocab(hidden)
+                idxs = vocabLogit[0, :, :].max(1)[1]
+                tokens[:, index] = idxs
+                currTokens = self.vocabulary(idxs, byWord=False).unsqueeze(1)
 
         hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
-        # tokens = torch.cat((goEmbedding, tokens), dim=1)
         return hiddens, tokens
 
     def _generateTokens(self, tokens, h0, lenghts, evaluation):
-
-        if evaluation:
-            size = self.eval_size
-        else:
-            size = self.params.batch_size
-
         hidden = h0
         generatedVocabs = torch.zeros(
-            size, len(tokens), self.vocabulary.vocabSize + 1,
+            self.size, len(tokens), self.vocabulary.vocabSize + 1,
             device=device)
         output, hidden = self.generator(tokens, hidden, lenghts)
 
@@ -207,10 +207,6 @@ class StyleTransfer(BaseModel):
         self.transformedHiddens = torch.cat(
             (transformedHiddens, content), dim=2)
 
-        # print("content.shape", content.shape)
-        # print("transformedHiddens.shape", transformedHiddens.shape)
-        # print("self.transformedHiddens.shape", self.transformedHiddens.shape)
-
     def _runBatch(
             self, encoder_inputs, generator_input,
             targets, labels, lenghts, evaluation, which_params):
@@ -218,16 +214,11 @@ class StyleTransfer(BaseModel):
         which_params - string 'd0' or 'd1' or 'eg'
         """
 
+        self.size = self.eval_size if evaluation else self.params.batch_size
         self.losses = defaultdict(float)
 
-        negativeIndex = [
-            i for i in range(self.params.batch_size//2)]
-        positiveIndex = [
-            i for i in range(self.params.batch_size//2, self.params.batch_size)]
-        # negativeIndex = np.where(labels == 0)[0]
-        # positiveIndex = np.nonzero(labels)
-        # print("positiveIndex:", positiveIndex)
-        # print("negativeIndex:", negativeIndex)
+        negativeIndex = np.where(labels == 0)[0]
+        positiveIndex = np.nonzero(labels)
 
         self._computeHiddens(
                 encoder_inputs, generator_input, labels, lenghts, evaluation)
@@ -288,14 +279,11 @@ class StyleTransfer(BaseModel):
 
         return encoder_inputs, generator_inputs, targets, lengths
 
-    def trainOnBatch(self, sentences, labels, iterNum):
+    def trainOnBatch(self, sentences, labels, iterNum, printDebug=False):
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
             self._sentencesToInputs(sentences)
-
-        # print("trainOnBatch encoder_inputs.shape:", encoder_inputs.shape)
-        # print("trainOnBatch generator_inputs.shape:", generator_inputs.shape)
 
         # compute losses for discriminator0 and optimize
         self._zeroGradients()
@@ -328,7 +316,7 @@ class StyleTransfer(BaseModel):
             self.losses['autoencoder'] += \
                 self.params.lambda_GAN * self.losses['generator']
 
-        if iterNum % 200 == 0:
+        if printDebug and iterNum % 200 == 0:
             self.losses['discriminator1'] = d1Loss
             self.losses['discriminator0'] = d0Loss
             self.printDebugLoss()
