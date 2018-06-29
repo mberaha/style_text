@@ -20,7 +20,7 @@ class BeamState(object):
             word, h, sentence, nll
 
 
-class Decoder(object):
+class BeamSearchDecoder(object):
 
     def __init__(self, styleTransfer, max_length, beam_width, params):
         self.model = styleTransfer
@@ -38,9 +38,6 @@ class Decoder(object):
             indices --
             h --
         """
-        # embedding nn lookup
-        # currTokens = torch.matmul(
-        #     vocabProbs, self.vocabulary.embeddings.weight)
         currTokens = tokens
         currh = h
         # generate next h state and logit
@@ -56,14 +53,6 @@ class Decoder(object):
         # take the beam_with most probable words
         logProbs, indices = torch.topk(logProbs, self.width, dim=-1)
         return logProbs, indices, h
-
-    def printDebug(self, storeBeamLayer):
-        for sent in storeBeamLayer:
-            for state in sent:
-                print(
-                    state.word,
-                    [self.model.vocabulary.id2word[int(x)] for x in list(state.sentence)],
-                    float(state.nll))
 
     def _beamDecode(self, h0):
         """
@@ -83,16 +72,14 @@ class Decoder(object):
         for _ in range(self.max_length):
             storeBeamLayer = [[] for _ in range(batch_size)]
             for state in beam:
-                # self.printDebug(storeBeamLayer)
-                # print('\n')
-
                 embs = self.model.vocabulary(state.word)
                 embs = embs.unsqueeze(1)
                 logProbs, indices, h = self._decode(embs, state.h)
                 for b in range(batch_size):
                     for w in range(self.width):
+                        word = self.model.vocabulary.id2word[int(indices[b, w])]
                         storeBeamLayer[b].append(
-                            BeamState(self.model.vocabulary.id2word[int(indices[b, w])],
+                            BeamState(word,
                                       h[:, b, :],
                                       state.sentence[b] + [indices[b, w]],
                                       state.nll[b] - logProbs[b, w]))
@@ -115,7 +102,6 @@ class Decoder(object):
             [self.model.vocabulary.id2word[i] for i in sent]
             for sent in sentences]
         # TODO strip the EOS
-        # sentences = strip_eos(sentences)
         sentences = list(map(lambda x: " ".join(x), sentences))
         return sentences
 
