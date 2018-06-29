@@ -10,8 +10,9 @@ class BaseModel(nn.Module):
         super().__init__()
         self.iter = 0
 
-    def load(self):
-        self.load_state_dict(self.params.savefile)
+    def load(self, fileName):
+        checkpoint = torch.load(fileName)
+        self.load_state_dict(checkpoint)
 
     def trainModel(self, trainBatches, validBatches, shuffle=True):
         for epoch in range(self.params.epochs):

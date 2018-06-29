@@ -22,16 +22,18 @@ class AutoencoderParams(object):
 
 class Params(object):
     in_memory = True
-    max_length = 20
+    max_len = 20
     embedding_size = 200
     dim_y = 200
     dim_z = 500
-    batch_size = 128
-    epochs = 10  # 2 for debugging, then go to 10
-    temperature = 0.001
+    batch_size = 256
+    epochs = 20
+    temperature = 0.1
     lambda_GAN = 1
     dropout = 0.5
-    grad_clip = 1
-    savefile = "data/yelp/model"
+    max_loss = 1e10
+    grad_clip = 20
+    max_d_loss = 1.2
+    savefile = ""
     autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
     discriminator = DiscriminatorParams(embedding_size)
