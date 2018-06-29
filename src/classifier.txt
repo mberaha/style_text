@@ -1,0 +1,2 @@
+check: https://github.com/Shawn1993/cnn-text-classification-pytorch
+and: https://github.com/galsang/CNN-sentence-classification-pytorch
