@@ -42,4 +42,4 @@ if __name__ == "__main__":
         batchsize=params.batch_size,
         inMemory=True)
 
-    model.trainModel(trainBatches[:10], validSet[:10])
+    model.trainModel(trainBatches, validSet)
