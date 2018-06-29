@@ -5,15 +5,18 @@ import logging
 import pickle
 import torch
 
+from torch import nn
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 _SPECIAL_TOKENS = ['<pad>', '<go>', '<eos>', '<unk>']
 
 
-class Vocabulary(object):
+class Vocabulary(nn.Module):
 
     def __init__(self):
         "vocabulary is a list of all the words we are interested into"
+        super().__init__()
         self.embeddings = None
         self.word2id = None
 
@@ -43,8 +46,12 @@ class Vocabulary(object):
     def getSentenceIds(self, words):
         unkId = self.word2id['<unk>']
         ids = list(map(lambda x: self.word2id.get(x, unkId), words))
-        return torch.LongTensor(ids, device=device).to(device)
+        return torch.LongTensor(ids).to(device)
 
-    def getEmbedding(self, words):
-        ids = self.getSentenceIds(words)
-        return self.embeddings(ids)
+    def getEmbedding(self, words, byWord):
+        if byWord:
+            words = self.getSentenceIds(words)
+        return self.embeddings(words)
+
+    def forward(self, inputs, byWord=True):
+        return self.getEmbedding(inputs, byWord)

@@ -1,13 +1,13 @@
 import copy
-import itertools
 from sklearn.utils import shuffle
 
 
-def batchesFromFiles(files: list, batchsize: int, inMemory: bool):
+def batchesFromFiles(positiveFile, negativeFile, batchsize, inMemory):
     if inMemory:
-        return loadFilesAndGenerateBatches(files, batchsize)
+        return loadFilesAndGenerateBatches(
+            positiveFile, negativeFile, batchsize)
 
-    return yieldBatchesFromFiles(files, batchsize)
+    return yieldBatchesFromFiles(positiveFile, negativeFile, batchsize)
 
 
 def yieldBatchesFromFiles(files, batchsize):
@@ -30,10 +30,11 @@ def yieldBatchesFromFiles(files, batchsize):
         yield inputs, labels
 
 
-def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
+def loadFilesAndGenerateBatches(
+        positiveFile, negativeFile, batchsize=-1, shuffleFiles=True):
     inputs = []
     lenLines = []
-    for label, fileName in enumerate(files):
+    for label, fileName in enumerate([negativeFile, positiveFile]):
         with open(fileName, 'r') as fp:
             lines = fp.readlines()
 
@@ -59,9 +60,10 @@ def loadFilesAndGenerateBatches(files, batchsize=-1, shuffleFiles=True):
     for index in range(0, min(lenLines), iterStep):
         currInputs = []
         currLabels = []
-        for label, class_inputs in enumerate(inputs):
-            currInputs.extend(class_inputs[index:index + iterStep])
-            currLabels.extend([label] * iterStep)
+        currInputs.extend(inputs[0][index:index + iterStep])
+        currLabels.extend([0] * iterStep)
+        currInputs.extend(inputs[1][index:index + iterStep])
+        currLabels.extend([1] * iterStep)
         if len(currInputs) == batchsize:
             batches.append((currInputs, currLabels))
     return batches
