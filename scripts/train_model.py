@@ -15,10 +15,12 @@ if __name__ == "__main__":
     parser.add_argument("--evaluation_file_style2", type=str)
     parser.add_argument("--vocabulary", type=str)
     parser.add_argument("--savefile", type=str)
+    parser.add_argument("--logdir", type=str, default="")
     args = parser.parse_args()
 
     params = Params()
     params.savefile = args.savefile
+    params.logdir = args.logdir
     vocab = Vocabulary()
     vocab.loadVocabulary(args.vocabulary)
     vocab.initializeEmbeddings(params.embedding_size)
@@ -29,15 +31,15 @@ if __name__ == "__main__":
         model = model.cuda()
 
     trainBatches = batchesFromFiles(
-        positiveFile=args.train_file_positive,
-        negativeFile=args.train_file_negative,
+        style1=args.train_file_style1,
+        style2=args.train_file_style2,
         batchsize=params.batch_size,
         inMemory=True)
 
     validSet = batchesFromFiles(
-        positiveFile=args.evaluation_file_positive,
-        negativeFile=args.evaluation_file_negative,
+        style1=args.evaluation_file_style1,
+        style2=args.evaluation_file_style2,
         batchsize=params.batch_size,
         inMemory=True)
 
-    model.trainModel(trainBatches, validSet)
+    model.trainModel(trainBatches[:10], validSet[:10])

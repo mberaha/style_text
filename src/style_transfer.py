@@ -1,12 +1,17 @@
 # TODO add dropout to the input of the GRU cells? Tianxiao does so
+import copy
 import json
 import logging
 import numpy as np
+import os
+import pickle
 import torch
 from torch import optim
 import torch.nn as nn
 import torch.nn.functional
 from collections import defaultdict
+from src.beam_search import BeamSearchDecoder
+from src.greedy_decoding import GreedyDecoder
 from src.base_model import BaseModel
 from src.generate_batches import preprocessSentences
 from src.rnn import Rnn, SoftSampleWord
@@ -91,8 +96,8 @@ class StyleTransfer(BaseModel):
         ones = torch.ones((len(x_real), 1)).to(device)
         zeros = torch.zeros((len(x_fake), 1)).to(device)
         discriminator = self.discriminators[label]
-        x_fake = x_fake.unsqueeze(1)
         x_real = x_real.unsqueeze(1)
+        x_fake = x_fake.unsqueeze(1)
         class_fake = discriminator(x_fake.detach())
         class_real = discriminator(x_real.detach())
         class_fake = class_fake.squeeze(0)
@@ -137,10 +142,9 @@ class StyleTransfer(BaseModel):
         softSampleFunction = SoftSampleWord(
             dropout=self.params.dropout,
             embeddings=self.vocabulary.embeddings,
-            gamma=self.params.gamma_init)
+            gamma=self.params.temperature)
 
         if soft:
-
             for index in range(max_len):
                 # generator need input (seq_len, batch_size, input_size)
                 output, hidden = self.generator(
@@ -216,7 +220,6 @@ class StyleTransfer(BaseModel):
 
         self.size = self.eval_size if evaluation else self.params.batch_size
         self.losses = defaultdict(float)
-
         negativeIndex = np.where(labels == 0)[0]
         positiveIndex = np.nonzero(labels)
 
@@ -341,6 +344,7 @@ class StyleTransfer(BaseModel):
         encoder_inputs, generator_inputs, targets, lengths = \
             self._sentencesToInputs(sentences)
 
+        labels = np.array(labels)
         self._runBatch(
             encoder_inputs, generator_inputs, targets, labels, lengths,
             evaluation=True, which_params='eg')
@@ -350,14 +354,53 @@ class StyleTransfer(BaseModel):
 
         return self.losses['autoencoder']
 
-    def evaluate(self, batches):
+    def evaluate(self, batches, epoch_index):
+        batchLosses = []
         self.losses = defaultdict(float)
         for batch in batches:
             sentences = batch[0]
             labels = batch[1]
             self.evaluateOnBatch(sentences, labels)
+            batchLosses.append(
+                {k: copy.deepcopy(float(v)) for k, v in self.losses.items()})
 
-        return self.losses['autoencoder']
+        if self.params.logdir:
+            greedy = GreedyDecoder(self, self.params)
+            beam = BeamSearchDecoder(self, self.params)
+            reconstructedGreedy = []
+            transformedGreedy = []
+            reconstructedBeam = []
+            transformedBeam = []
+            allSentences = []
+            allLabels = []
+            epoch_dir = os.path.join(
+                self.params.logdir, 'epoch_{0}'.format(epoch_index))
+            os.makedirs(epoch_dir, exist_ok=True)
+            lossFile = os.path.join(epoch_dir, 'losses.pickle')
+            transferFile = os.path.join(epoch_dir, 'transfers.json')
+            with open(lossFile, 'wb') as fp:
+                pickle.dump(batchLosses, fp)
+
+            for batch in batches:
+                allSentences.extend(batch[0])
+                allLabels.extend(batch[1])
+                rGreedy, tGreedy = greedy.rewriteBatch(batch[0], batch[1])
+                reconstructedGreedy.extend(rGreedy)
+                transformedGreedy.extend(tGreedy)
+                rBeam, tBeam = beam.rewriteBatch(batch[0], batch[1])
+                reconstructedBeam.extend(rBeam)
+                transformedBeam.extend(tBeam)
+
+            with open(transferFile, 'w') as fp:
+                json.dump(
+                    {'original': allSentences,
+                     'labels': allLabels,
+                     'reconstructed_greedy': reconstructedGreedy,
+                     'transformed_greedy': transformedGreedy,
+                     'reconstructed_beam': reconstructedBeam,
+                     'transformed_beam': transformedBeam}, fp)
+
+        return np.average([float(x['autoencoder']) for x in batchLosses])
 
     def transformBatch(self, sentences, labels):
         self.eval()

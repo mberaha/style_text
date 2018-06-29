@@ -26,7 +26,7 @@ class Params(object):
     embedding_size = 200
     dim_y = 200
     dim_z = 500
-    batch_size = 256
+    batch_size = 12
     epochs = 20
     temperature = 0.1
     lambda_GAN = 1
@@ -35,5 +35,7 @@ class Params(object):
     grad_clip = 20
     max_d_loss = 1.2
     savefile = ""
+    logfile = ""
+    beam_width = 3
     autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
     discriminator = DiscriminatorParams(embedding_size)
