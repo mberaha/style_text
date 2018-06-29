@@ -21,13 +21,13 @@ parser.add_argument('-save-interval', type=int, default=500, help='how many step
 parser.add_argument('-save-dir', type=str, default='snapshot', help='where to save the snapshot')
 parser.add_argument('-early-stop', type=int, default=1000, help='iteration numbers to stop without performance increasing')
 parser.add_argument('-save-best', type=bool, default=True, help='whether to save when get best performance')
-# data 
+# data
 parser.add_argument('-shuffle', action='store_true', default=False, help='shuffle the data every epoch')
 # model
 parser.add_argument('-dropout', type=float, default=0.5, help='the probability for dropout [default: 0.5]')
 parser.add_argument('-max-norm', type=float, default=3.0, help='l2 constraint of parameters [default: 3.0]')
 parser.add_argument('-embed-dim', type=int, default=200, help='number of embedding dimension [default: 128]')
-parser.add_argument('-kernel-num', type=int, default=100, help='number of each kind of kernel')
+parser.add_argument('-kernel-num', type=int, default=128, help='number of each kind of kernel')
 parser.add_argument('-kernel-sizes', type=str, default='1,2,3', help='comma-separated kernel size to use for convolution')
 parser.add_argument('-static', action='store_true', default=False, help='fix the embedding')
 # device
@@ -46,12 +46,12 @@ def sst(text_field, label_field,  **kargs):
     text_field.build_vocab(train_data, dev_data, test_data)
     label_field.build_vocab(train_data, dev_data, test_data)
     train_iter, dev_iter, test_iter = data.BucketIterator.splits(
-                                        (train_data, dev_data, test_data), 
-                                        batch_sizes=(args.batch_size, 
-                                                     len(dev_data), 
+                                        (train_data, dev_data, test_data),
+                                        batch_sizes=(args.batch_size,
+                                                     len(dev_data),
                                                      len(test_data)),
                                         **kargs)
-    return train_iter, dev_iter, test_iter 
+    return train_iter, dev_iter, test_iter
 
 
 # load MR dataset
@@ -60,7 +60,24 @@ def mr(text_field, label_field, **kargs):
     text_field.build_vocab(train_data, dev_data)
     label_field.build_vocab(train_data, dev_data)
     train_iter, dev_iter = data.Iterator.splits(
-                                (train_data, dev_data), 
+                                (train_data, dev_data),
+                                batch_sizes=(args.batch_size, len(dev_data)),
+                                **kargs)
+    return train_iter, dev_iter
+
+# load YELP dataset
+def yelp(text_field, label_field, **kargs):
+    train_data, dev_data = mydatasets.YELP.splits(
+        text_field, label_field, root='data/yelp/classifier_train_dev')
+    text_field.build_vocab(train_data, dev_data)
+    label_field.build_vocab(train_data, dev_data)
+    # text_vocab = text_field.vocab
+    # label_vocab = label_field.vocab
+    # self.embed = nn.Embedding(len(text_vocab), emb_dim)
+    # self.embed = nn.Embedding(len(label_vocab), emb_dim)
+    # self.embed.weight.data.copy_(vocab.vectors)
+    train_iter, dev_iter = data.Iterator.splits(
+                                (train_data, dev_data),
                                 batch_sizes=(args.batch_size, len(dev_data)),
                                 **kargs)
     return train_iter, dev_iter
@@ -70,12 +87,21 @@ def mr(text_field, label_field, **kargs):
 print("\nLoading data...")
 text_field = data.Field(lower=True)
 label_field = data.Field(sequential=False)
-train_iter, dev_iter = mr(text_field, label_field, device=-1, repeat=False)
+train_iter, dev_iter = yelp(text_field, label_field, device=-1, repeat=False)
+# train_iter, dev_iter = mr(text_field, label_field, device=-1, repeat=False)
 # train_iter, dev_iter, test_iter = sst(text_field, label_field, device=-1, repeat=False)
 
-
+embed_num = None
 # update args and print
-args.embed_num = len(text_field.vocab)
+if args.snapshot is not None:
+    print('\nLoading model from {}...'.format(args.snapshot))
+    state_dict = torch.load(args.snapshot)
+    embed_num = len(state_dict['embed.weight'])
+
+if embed_num:
+    args.embed_num = embed_num
+else:
+    args.embed_num = len(text_field.vocab)
 args.class_num = len(label_field.vocab) - 1
 args.cuda = (not args.no_cuda) and torch.cuda.is_available(); del args.no_cuda
 args.kernel_sizes = [int(k) for k in args.kernel_sizes.split(',')]
@@ -89,13 +115,13 @@ for attr, value in sorted(args.__dict__.items()):
 # model
 cnn = model.CNN_Text(args)
 if args.snapshot is not None:
-    print('\nLoading model from {}...'.format(args.snapshot))
-    cnn.load_state_dict(torch.load(args.snapshot))
+    cnn.load_state_dict(state_dict)
+
 
 if args.cuda:
     torch.cuda.set_device(args.device)
     cnn = cnn.cuda()
-        
+
 
 # train or predict
 if args.predict is not None:
@@ -103,7 +129,7 @@ if args.predict is not None:
     print('\n[Text]  {}\n[Label] {}\n'.format(args.predict, label))
 elif args.test:
     try:
-        train.eval(test_iter, cnn, args) 
+        train.eval(test_iter, cnn, args)
     except Exception as e:
         print("\nSorry. The test dataset doesn't  exist.\n")
 else:
@@ -113,4 +139,3 @@ else:
     except KeyboardInterrupt:
         print('\n' + '-' * 89)
         print('Exiting from training early')
-
