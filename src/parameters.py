@@ -26,7 +26,7 @@ class Params(object):
     embedding_size = 200
     dim_y = 200
     dim_z = 500
-    batch_size = 12
+    batch_size = 128
     epochs = 20
     temperature = 0.1
     lambda_GAN = 1
