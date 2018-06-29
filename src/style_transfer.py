@@ -382,7 +382,9 @@ class StyleTransfer(BaseModel):
                 pickle.dump(batchLosses, fp)
 
             for batch in batches:
-                allSentences.extend(batch[0])
+                # rnn sorts sentences from longest to shortest, to keep the
+                # correspondance we do the same.
+                allSentences.extend(sorted(batch[0], key=len, reverse=True))
                 allLabels.extend(batch[1])
                 rGreedy, tGreedy = greedy.rewriteBatch(batch[0], batch[1])
                 reconstructedGreedy.extend(rGreedy)
