@@ -4,7 +4,6 @@ Keep the current vocabulary and embeddings
 import logging
 import pickle
 import torch
-import numpy as np
 from torch import nn
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -43,25 +42,6 @@ class Vocabulary(nn.Module):
         self.embeddings = torch.nn.Embedding(
             self.vocabSize, self.embeddingSize).to(device)
 
-    def noise(IDs, unk, word_drop=0.0, k=3):
-        """
-        Apply noise to input sentences as suggested in the paper:
-        Unsupervised Machine Translation Using Monolingual Corpora Only
-        """
-        batchSize = IDs.shape[0]
-        for sent in range(batchSize):
-            n = len(sent)
-            for i in range(n):
-                if np.random.random_sample() < word_drop:
-                    # enters here only if word_drop>0.0
-                    sent[i] = unk
-
-            # slight shuffle such that |sigma[i]-i| <= k
-            sigma = (np.arange(n) + (k+1) * np.random.rand(n)).argsort()
-        return [x[sigma[i]] for i in range(n)]
-
-        return
-
     def getSentenceIds(self, words):
         unkId = self.word2id['<unk>']
         ids = list(map(lambda x: self.word2id.get(x, unkId), words))
@@ -69,9 +49,7 @@ class Vocabulary(nn.Module):
 
     def getEmbedding(self, words, byWord):
         if byWord:
-            unkId = self.word2id['<unk>']
             wordsID = self.getSentenceIds(words)
-            wordsID = noise(wordsID, unkID) if noisy else wordID
         return self.embeddings(wordsID)
 
     def forward(self, inputs, byWord=True):

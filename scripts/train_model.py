@@ -29,14 +29,14 @@ if __name__ == "__main__":
         model = model.cuda()
 
     trainBatches = batchesFromFiles(
-        positiveFile=args.train_file_positive,
-        negativeFile=args.train_file_negative,
+        positiveFile=args.train_file_style2,
+        negativeFile=args.train_file_style1,
         batchsize=params.batch_size,
         inMemory=True)
 
     validSet = batchesFromFiles(
-        positiveFile=args.evaluation_file_positive,
-        negativeFile=args.evaluation_file_negative,
+        positiveFile=args.evaluation_file_style2,
+        negativeFile=args.evaluation_file_style1,
         batchsize=params.batch_size,
         inMemory=True)
 
