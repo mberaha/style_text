@@ -4,7 +4,6 @@ Keep the current vocabulary and embeddings
 import logging
 import pickle
 import torch
-
 from torch import nn
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -50,8 +49,8 @@ class Vocabulary(nn.Module):
 
     def getEmbedding(self, words, byWord):
         if byWord:
-            words = self.getSentenceIds(words)
-        return self.embeddings(words)
+            wordsID = self.getSentenceIds(words)
+        return self.embeddings(wordsID)
 
     def forward(self, inputs, byWord=True):
         return self.getEmbedding(inputs, byWord)
