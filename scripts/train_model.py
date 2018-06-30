@@ -2,6 +2,7 @@ import argparse
 import logging
 import torch
 from google.protobuf import text_format
+from google.protobuf.json_format import MessageToJson
 from src.generate_batches import batchesFromFiles
 from src.parameters import Params
 from src.parameters_pb2 import StyleTransferParams
@@ -22,6 +23,14 @@ def loadParams(machine):
     return params
 
 
+def printParams(params):
+    print('Parameters:')
+    print(MessageToJson(
+        params,
+        including_default_value_fields=True,
+        preserving_proto_field_name=True))
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
     parser = argparse.ArgumentParser()
@@ -38,6 +47,7 @@ if __name__ == "__main__":
     params = loadParams(args.machine)
     params.savefile = args.savefile
     params.logdir = args.logdir
+    printParams(params)
     vocab = Vocabulary()
     vocab.loadVocabulary(args.vocabulary)
     vocab.initializeEmbeddings(params.embedding_size)
