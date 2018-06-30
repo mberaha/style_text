@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class Cnn(nn.Module):
     """
-        GAN discriminator is a CNN
+        GAN discriminator is a TextCNN
     """
 
     def __init__(self, in_channels, out_channels, kernel_sizes,

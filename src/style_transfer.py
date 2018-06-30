@@ -77,7 +77,7 @@ class StyleTransfer(BaseModel):
              {'params': self.generatorLabelsTransform.parameters()},
              {'params': self.vocabulary.embeddings.parameters()},
              {'params': self.hiddenToVocab.parameters()}],
-            lr=self.params.discriminator.learning_rate,
+            lr=self.params.autoencoder.learning_rate,
             betas=(self.params.autoencoder.beta_0,
                    self.params.autoencoder.beta_1))
         self.discriminator0_optimizer = optim.Adam(
