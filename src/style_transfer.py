@@ -411,7 +411,7 @@ class StyleTransfer(BaseModel):
         self.eval()
         self.eval_size = len(sentences)
         encoder_inputs, generator_inputs, _, lengths = \
-            self._sentencesToInputs(sentences)
+            self._sentencesToInputs(sentences, noisy=False)
         self._computeHiddens(
             encoder_inputs, generator_inputs, labels, lengths, evaluation=True)
 
