@@ -50,6 +50,8 @@ class Vocabulary(nn.Module):
     def getEmbedding(self, words, byWord):
         if byWord:
             wordsID = self.getSentenceIds(words)
+        else:
+            wordsID = words
         return self.embeddings(wordsID)
 
     def forward(self, inputs, byWord=True):
