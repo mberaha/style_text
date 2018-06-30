@@ -1,6 +1,6 @@
 in_memory: True
 max_len: 20
-embedding_size: 200
+embedding_size: 100
 dim_y: 200
 dim_z: 500
 batch_size: 256
@@ -18,7 +18,7 @@ autoencoder {
   hidden_size: 700
   num_layers: 1
   dropout: 0.5
-  learning_rate: 0.0001
+  learning_rate: 0.0005
   beta_0: 0.5
   beta_1: 0.999
 }
@@ -32,9 +32,8 @@ discriminator {
   kernel_sizes: 4
   kernel_sizes: 5
   embedding_size: 100
-  hidden_size: 5
   dropout: 0.5
-  learning_rate: 0.001
+  learning_rate: 0.0005
   beta_0: 0.5
   beta_1: 0.999
 }
