@@ -1,7 +1,7 @@
 class DiscriminatorParams(object):
     def __init__(self, embedding_size):
         self.in_channels = 1
-        self.out_channels = 3  # default in paper=128
+        self.out_channels = 128  # default in paper=128
         self.kernel_sizes = [1, 2, 3]  # default in paper=[1, 2, 3]
         self.embedding_size = embedding_size
         self.hidden_size = 5
@@ -36,6 +36,7 @@ class Params(object):
     max_d_loss = 1.2
     savefile = ""
     logfile = ""
+    logdir = ""
     beam_width = 3
     autoencoder = AutoencoderParams(embedding_size, dim_y, dim_z)
     discriminator = DiscriminatorParams(embedding_size)
