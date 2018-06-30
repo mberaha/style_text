@@ -1,0 +1,38 @@
+in_memory: True
+max_len: 20
+embedding_size: 200
+dim_y: 200
+dim_z: 500
+batch_size: 12
+epochs: 20
+temperature: 0.1
+lambda_GAN: 1
+dropout: 0.5
+max_loss: 1e10
+grad_clip: 20
+max_d_loss: 1.2
+beam_width: 3
+
+autoencoder {
+  input_size: 200
+  hidden_size: 700
+  num_layers: 1
+  dropout: 0.5
+  learning_rate: 0.0001
+  beta_0: 0.5
+  beta_1: 0.999
+}
+
+discriminator {
+  in_channels: 1
+  out_channels: 2
+  kernel_sizes: 1
+  kernel_sizes: 2
+  kernel_sizes: 3
+  embedding_size: 200
+  hidden_size: 5
+  dropout: 0.5
+  learning_rate: 0.001
+  beta_0: 0.5
+  beta_1: 0.999
+}
