@@ -3,12 +3,12 @@ from sklearn.utils import shuffle
 import numpy as np
 
 
-def batchesFromFiles(positiveFile, negativeFile, batchsize, inMemory):
+def batchesFromFiles(style1, style2, batchsize, inMemory):
     if inMemory:
         return loadFilesAndGenerateBatches(
-            positiveFile, negativeFile, batchsize)
+            style1, style2, batchsize)
 
-    return yieldBatchesFromFiles(positiveFile, negativeFile, batchsize)
+    return yieldBatchesFromFiles(style1, style2, batchsize)
 
 
 def yieldBatchesFromFiles(files, batchsize):
@@ -32,10 +32,10 @@ def yieldBatchesFromFiles(files, batchsize):
 
 
 def loadFilesAndGenerateBatches(
-        positiveFile, negativeFile, batchsize=-1, shuffleFiles=True):
+        style1, style2, batchsize=-1, shuffleFiles=True):
     inputs = []
     lenLines = []
-    for label, fileName in enumerate([negativeFile, positiveFile]):
+    for label, fileName in enumerate([style1, style2]):
         with open(fileName, 'r') as fp:
             lines = fp.readlines()
 
