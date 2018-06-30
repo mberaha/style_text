@@ -1,5 +1,6 @@
 import copy
 from sklearn.utils import shuffle
+import numpy as np
 
 
 def batchesFromFiles(positiveFile, negativeFile, batchsize, inMemory):
@@ -69,7 +70,31 @@ def loadFilesAndGenerateBatches(
     return batches
 
 
-def preprocessSentences(sentences, padToMaxLen=True, noise=False):
+def noise(sentences, word_drop=0.1, k=3):
+    """
+    Apply noise to input sentences as suggested in the paper:
+    Unsupervised Machine Translation Using Monolingual Corpora Only
+    """
+    unk = '<unk>'
+    for sentIndex, sent in enumerate(sentences):
+        sentLen = len(sent)
+        for wordIndex in range(sentLen):
+            # drop words from input with probability word-drop
+            if np.random.random_sample() < word_drop:
+                sent[wordIndex] = unk
+
+        # slightly shuffle the input sequences by applying a random
+        # permutation sigma  which verifies the condition:
+        # |sigma[word]-word| <= k
+        noisyIndexes = np.arange(sentLen) + (k+1) * np.random.rand(sentLen)
+        sigma = (noisyIndexes).argsort()
+        sent = [sent[sigma[word]] for word in range(sentLen)]
+        sentences[sentIndex] = sent
+
+    return sentences
+
+
+def preprocessSentences(sentences, padToMaxLen=True, noisy=False):
     def addGo(sentence):
         out = ['<go>']
         out.extend(sentence)
@@ -85,6 +110,8 @@ def preprocessSentences(sentences, padToMaxLen=True, noise=False):
         return sentence
 
     sentences = sorted(sentences, key=len, reverse=True)
+    if noisy:
+        sentences = noise(sentences)
     encoder_inputs = copy.deepcopy(sentences)
     encoder_inputs = [addEos(x) for x in encoder_inputs]
     decoder_inputs = copy.deepcopy(sentences)
