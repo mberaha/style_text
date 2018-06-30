@@ -5,10 +5,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class GreedyDecoder(object):
 
-    def __init__(self, styleTransfer, max_len, beam_width, params):
+    def __init__(self, styleTransfer, params):
         self.model = styleTransfer
-        self.max_len = max_len
-        self.width = beam_width
+        self.max_len = params.max_len
         self.params = params
 
     def _decode(self, h0s):
