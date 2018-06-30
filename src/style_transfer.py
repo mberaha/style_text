@@ -30,39 +30,39 @@ class StyleTransfer(BaseModel):
         self.params = params
         # instantiating the encoder and the generator
         self.encoder = Rnn(
-            params.autoencoder.input_size,
-            params.autoencoder.hidden_size,
-            params.autoencoder.num_layers,
+            self.params.autoencoder.input_size,
+            self.params.autoencoder.hidden_size,
+            self.params.autoencoder.num_layers,
             batch_first=True).to(device)
         self.generator = Rnn(
-            params.autoencoder.input_size,
-            params.autoencoder.hidden_size,
-            params.autoencoder.num_layers,
+            self.params.autoencoder.input_size,
+            self.params.autoencoder.hidden_size,
+            self.params.autoencoder.num_layers,
             batch_first=True).to(device)
 
         # instantiating linear networks for hidden transformations
         self.encoderLabelsTransform = \
-            torch.nn.Linear(1, params.dim_y).to(device)
+            torch.nn.Linear(1, self.params.dim_y).to(device)
         self.generatorLabelsTransform = \
-            torch.nn.Linear(1, params.dim_y).to(device)
+            torch.nn.Linear(1, self.params.dim_y).to(device)
         self.hiddenToVocab = torch.nn.Linear(
-            params.autoencoder.hidden_size,
+            self.params.autoencoder.hidden_size,
             self.vocabulary.vocabSize).to(device)
 
         # instantiating the discriminators
         discriminator0 = Cnn(
-            params.discriminator.in_channels,
-            params.discriminator.out_channels,
-            params.discriminator.kernel_sizes,
-            params.autoencoder.hidden_size,
-            params.discriminator.dropout
+            self.params.discriminator.in_channels,
+            self.params.discriminator.out_channels,
+            self.params.discriminator.kernel_sizes,
+            self.params.autoencoder.hidden_size,
+            self.params.discriminator.dropout
         ).to(device)
         discriminator1 = Cnn(
-            params.discriminator.in_channels,
-            params.discriminator.out_channels,
-            params.discriminator.kernel_sizes,
-            params.autoencoder.hidden_size,
-            params.discriminator.dropout
+            self.params.discriminator.in_channels,
+            self.params.discriminator.out_channels,
+            self.params.discriminator.kernel_sizes,
+            self.params.autoencoder.hidden_size,
+            self.params.discriminator.dropout
         ).to(device)
         self.discriminators = {
             0: discriminator0,
@@ -77,16 +77,19 @@ class StyleTransfer(BaseModel):
              {'params': self.generatorLabelsTransform.parameters()},
              {'params': self.vocabulary.embeddings.parameters()},
              {'params': self.hiddenToVocab.parameters()}],
-            lr=params.discriminator.learning_rate,
-            betas=params.discriminator.betas)
+            lr=self.params.discriminator.learning_rate,
+            betas=(self.params.autoencoder.beta_0,
+                   self.params.autoencoder.beta_1))
         self.discriminator0_optimizer = optim.Adam(
             self.discriminators[0].parameters(),
-            lr=params.discriminator.learning_rate,
-            betas=params.discriminator.betas)
+            lr=self.params.discriminator.learning_rate,
+            betas=(self.params.discriminator.beta_0,
+                   self.params.discriminator.beta_1))
         self.discriminator1_optimizer = optim.Adam(
             self.discriminators[1].parameters(),
-            lr=params.discriminator.learning_rate,
-            betas=params.discriminator.betas)
+            lr=self.params.discriminator.learning_rate,
+            betas=(self.params.discriminator.beta_0,
+                   self.params.discriminator.beta_1))
 
         # instantiating the loss criterion
         self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
