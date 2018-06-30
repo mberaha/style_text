@@ -29,7 +29,7 @@ discriminator {
   kernel_sizes: 1
   kernel_sizes: 2
   kernel_sizes: 3
-  emedding_size: 200
+  embedding_size: 200
   hidden_size: 5
   dropout: 0.5
   learning_rate: 0.001
