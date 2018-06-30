@@ -69,7 +69,7 @@ def loadFilesAndGenerateBatches(
     return batches
 
 
-def preprocessSentences(sentences, padToMaxLen=True):
+def preprocessSentences(sentences, padToMaxLen=True, noise=False):
     def addGo(sentence):
         out = ['<go>']
         out.extend(sentence)
