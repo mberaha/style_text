@@ -14,7 +14,7 @@ max_d_loss: 1.2
 beam_width: 3
 
 autoencoder {
-  input_size: 200
+  input_size: 100
   hidden_size: 700
   num_layers: 1
   dropout: 0.5
