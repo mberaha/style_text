@@ -1,0 +1,46 @@
+syntax="proto3";
+
+message StyleTransferParams {
+
+  message DiscriminatorParams {
+    int32 in_channels = 1;
+    int32 out_channels = 2;
+    repeated int32 kernel_sizes = 3;
+    int32 embedding_size = 4;
+    int32 hidden_size = 5;
+    float dropout = 6;
+    float learning_rate = 7;
+    float beta_0 = 8;
+    float beta_1 = 9;
+  }
+
+  message AutoencoderParams {
+    int32 input_size = 1;
+    int32 hidden_size = 2;
+    int32 num_layers = 3;
+    float dropout = 4;
+    float learning_rate = 5;
+    float beta_0 = 6;
+    float beta_1 = 7;
+  }
+
+  bool in_memory = 1;
+  int32 max_len = 2;
+  int32 embedding_size = 3;
+  int32 dim_y = 4;
+  int32 dim_z = 5;
+  int32 batch_size = 6;
+  int32 epochs = 7;
+  float temperature = 8;
+  float lambda_GAN = 9;
+  float dropout = 10;
+  float max_loss = 11;
+  float grad_clip = 12;
+  float max_d_loss = 13;
+  string savefile = 14;
+  string logdir = 15;
+  int32 beam_width = 16;
+  AutoencoderParams autoencoder = 17;
+  DiscriminatorParams discriminator = 18;
+
+}
