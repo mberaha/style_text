@@ -3,7 +3,7 @@ max_len: 20
 embedding_size: 200
 dim_y: 200
 dim_z: 500
-batch_size: 128
+batch_size: 256
 epochs: 20
 temperature: 0.1
 lambda_GAN: 1
@@ -29,7 +29,9 @@ discriminator {
   kernel_sizes: 1
   kernel_sizes: 2
   kernel_sizes: 3
-  embedding_size: 200
+  kernel_sizes: 4
+  kernel_sizes: 5
+  embedding_size: 100
   hidden_size: 5
   dropout: 0.5
   learning_rate: 0.001
