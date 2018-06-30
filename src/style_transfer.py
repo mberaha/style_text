@@ -137,7 +137,7 @@ class StyleTransfer(BaseModel):
         softSampleFunction = SoftSampleWord(
             dropout=self.params.dropout,
             embeddings=self.vocabulary.embeddings,
-            gamma=self.params.gamma_init)
+            gamma=self.params.temperature)
 
         if soft:
 
@@ -267,7 +267,7 @@ class StyleTransfer(BaseModel):
         # transform sentences into embeddings
         sentences = list(map(lambda x: x.split(" "), sentences))
         encoder_inputs, generator_inputs, targets, lengths = \
-            preprocessSentences(sentences, noise=noisy)
+            preprocessSentences(sentences, noisy=noisy)
         encoder_inputs = torch.stack(list(map(
             self.vocabulary, encoder_inputs)))
         generator_inputs = torch.stack(list(map(
@@ -339,7 +339,7 @@ class StyleTransfer(BaseModel):
         self.eval()
         self.eval_size = len(sentences)
         encoder_inputs, generator_inputs, targets, lengths = \
-            self._sentencesToInputs(sentences)
+            self._sentencesToInputs(sentences, noisy=False)
 
         self._runBatch(
             encoder_inputs, generator_inputs, targets, labels, lengths,
