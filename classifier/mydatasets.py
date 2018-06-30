@@ -108,10 +108,10 @@ class MR(TarDataset):
 
         return (cls(text_field, label_field, examples=examples[:dev_index]),
                 cls(text_field, label_field, examples=examples[dev_index:]))
-class YELP(TarDataset):
 
-    # url = 'https://www.cs.cornell.edu/people/pabo/movie-review-data/rt-polaritydata.tar.gz'
-    # filename = 'rt-polaritydata.tar'
+
+class DataSet(TarDataset):
+
     dirname = 'data/yelp/classifier_train_dev'
 
     @staticmethod
@@ -119,7 +119,7 @@ class YELP(TarDataset):
         return len(ex.text)
 
     def __init__(self, text_field, label_field, path=None, examples=None, **kwargs):
-        """Create a YELP dataset instance given a path and fields.
+        """Create a dataset instance given a path and fields.
 
         Arguments:
             text_field: The field that will be used for text data.
@@ -129,27 +129,7 @@ class YELP(TarDataset):
             Remaining keyword arguments: Passed to the constructor of
                 data.Dataset.
         """
-        # def clean_str(string):
-        #     """
-        #     Tokenization/string cleaning for all datasets except for SST.
-        #     Original taken from https://github.com/yoonkim/CNN_sentence/blob/master/process_data.py
-        #     """
-        #     string = re.sub(r"[^A-Za-z0-9(),!?\'\`]", " ", string)
-        #     string = re.sub(r"\'s", " \'s", string)
-        #     string = re.sub(r"\'ve", " \'ve", string)
-        #     string = re.sub(r"n\'t", " n\'t", string)
-        #     string = re.sub(r"\'re", " \'re", string)
-        #     string = re.sub(r"\'d", " \'d", string)
-        #     string = re.sub(r"\'ll", " \'ll", string)
-        #     string = re.sub(r",", " , ", string)
-        #     string = re.sub(r"!", " ! ", string)
-        #     string = re.sub(r"\(", " \( ", string)
-        #     string = re.sub(r"\)", " \) ", string)
-        #     string = re.sub(r"\?", " \? ", string)
-        #     string = re.sub(r"\s{2,}", " ", string)
-        #     return string.strip()
-        #
-        # text_field.preprocessing = data.Pipeline(clean_str)
+
         fields = [('text', text_field), ('label', label_field)]
 
         if examples is None:
@@ -161,7 +141,7 @@ class YELP(TarDataset):
             with open(os.path.join(path, 'yelp.pos'), errors='ignore') as f:
                 examples += [
                     data.Example.fromlist([line, 'positive'], fields) for line in f]
-        super(YELP, self).__init__(examples, fields, **kwargs)
+        super(DataSet, self).__init__(examples, fields, **kwargs)
 
     @classmethod
     def splits(cls, text_field, label_field, dev_ratio=.1, shuffle=True, root='.', **kwargs):
@@ -179,7 +159,6 @@ class YELP(TarDataset):
             Remaining keyword arguments: Passed to the splits method of
                 Dataset.
         """
-        # path = cls.download_or_unzip(root)
         path = root
         examples = cls(text_field, label_field, path=path, **kwargs).examples
         if shuffle: random.shuffle(examples)
