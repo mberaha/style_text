@@ -269,11 +269,11 @@ class StyleTransfer(BaseModel):
         self.discriminator0_optimizer.zero_grad()
         self.discriminator1_optimizer.zero_grad()
 
-    def _sentencesToInputs(self, sentences):
+    def _sentencesToInputs(self, sentences, noisy):
         # transform sentences into embeddings
         sentences = list(map(lambda x: x.split(" "), sentences))
         encoder_inputs, generator_inputs, targets, lengths = \
-            preprocessSentences(sentences)
+            preprocessSentences(sentences, noisy=noisy)
         encoder_inputs = torch.stack(list(map(
             self.vocabulary, encoder_inputs)))
         generator_inputs = torch.stack(list(map(
@@ -289,7 +289,7 @@ class StyleTransfer(BaseModel):
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
-            self._sentencesToInputs(sentences)
+            self._sentencesToInputs(sentences, noisy=True)
 
         # compute losses for discriminator0 and optimize
         self._zeroGradients()
@@ -345,7 +345,7 @@ class StyleTransfer(BaseModel):
         self.eval()
         self.eval_size = len(sentences)
         encoder_inputs, generator_inputs, targets, lengths = \
-            self._sentencesToInputs(sentences)
+            self._sentencesToInputs(sentences, noisy=False)
 
         labels = np.array(labels)
         self._runBatch(
