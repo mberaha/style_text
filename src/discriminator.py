@@ -23,7 +23,7 @@ class Cnn(nn.Module):
         """
         super().__init__()
 
-        self.dropout = dropout
+        self.dropoutLayer = nn.Dropout(p=dropout)
         # build parallel CNNs with different kernel sizes
         self.convs = nn.ModuleList([])  # CHECK CONVS ON ORIGINAL PAPER
         for ks in kernel_sizes:
@@ -48,9 +48,7 @@ class Cnn(nn.Module):
             F.max_pool1d(i, i.size(2)).squeeze(2) for i in x]
 
         x = torch.cat(x, 1)
-        x = F.dropout(x, p=self.dropout)
+        x = self.dropoutLayer(x)
         x = self.linear(x)
-        #flatten = torch.cat(pooled, dim=1).view(x.size()[0], -1)
-        #logits = F.relu(self.linear(flatten))
 
         return x

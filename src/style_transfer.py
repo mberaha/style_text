@@ -41,18 +41,21 @@ class StyleTransfer(BaseModel):
         self.vocabulary = vocabulary
         self.params = params
         self.discriminatorNoise = GaussianNoise()
+        self.dropoutLayer = nn.Dropout(p=self.params.dropout)
         self.noise_sigma = self.params.initial_noise
         # instantiating the encoder and the generator
         self.encoder = Rnn(
             self.params.autoencoder.input_size,
             self.params.autoencoder.hidden_size,
             self.params.autoencoder.num_layers,
-            batch_first=True).to(device)
+            batch_first=True,
+            dropout=self.params.dropout).to(device)
         self.generator = Rnn(
             self.params.autoencoder.input_size,
             self.params.autoencoder.hidden_size,
             self.params.autoencoder.num_layers,
-            batch_first=True).to(device)
+            batch_first=True,
+            dropout=self.params.dropout).to(device)
 
         # instantiating linear networks for hidden transformations
         self.encoderLabelsTransform = \
@@ -196,8 +199,7 @@ class StyleTransfer(BaseModel):
 
         # dropping some values of the generator output
         # during both training and test
-        output = torch.nn.functional.dropout(
-            output, p=self.params.dropout)
+        output = self.dropoutLayer(output)
 
         generatedVocabs = self.hiddenToVocab(output)
         return generatedVocabs, output
@@ -291,12 +293,12 @@ class StyleTransfer(BaseModel):
         sentences = list(map(lambda x: x.split(" "), sentences))
         encoder_inputs, generator_inputs, targets, lengths = \
             preprocessSentences(sentences, noisy=noisy)
-        encoder_inputs = torch.stack(list(map(
-            self.vocabulary, encoder_inputs)))
-        generator_inputs = torch.stack(list(map(
-            self.vocabulary, generator_inputs)))
-        targets = torch.stack(list(map(
-            self.vocabulary.getSentenceIds, targets)))
+        encoder_inputs = torch.autograd.Variable(torch.stack(list(map(
+            self.vocabulary, encoder_inputs))))
+        generator_inputs = torch.autograd.Variable(torch.stack(list(map(
+            self.vocabulary, generator_inputs))))
+        targets = torch.autograd.Variable(torch.stack(list(map(
+            self.vocabulary.getSentenceIds, targets))))
         targets = nn.utils.rnn.pack_padded_sequence(
             targets, lengths, batch_first=True)
 
