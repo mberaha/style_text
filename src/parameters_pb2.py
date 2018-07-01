@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='parameters.proto',
   package='',
   syntax='proto3',
-  serialized_pb=_b('\n\x10parameters.proto\"\xa3\x06\n\x13StyleTransferParams\x12\x11\n\tin_memory\x18\x01 \x01(\x08\x12\x0f\n\x07max_len\x18\x02 \x01(\x05\x12\x16\n\x0e\x65mbedding_size\x18\x03 \x01(\x05\x12\r\n\x05\x64im_y\x18\x04 \x01(\x05\x12\r\n\x05\x64im_z\x18\x05 \x01(\x05\x12\x12\n\nbatch_size\x18\x06 \x01(\x05\x12\x0e\n\x06\x65pochs\x18\x07 \x01(\x05\x12\x13\n\x0btemperature\x18\x08 \x01(\x02\x12\x12\n\nlambda_GAN\x18\t \x01(\x02\x12\x0f\n\x07\x64ropout\x18\n \x01(\x02\x12\x10\n\x08max_loss\x18\x0b \x01(\x02\x12\x11\n\tgrad_clip\x18\x0c \x01(\x02\x12\x12\n\nmax_d_loss\x18\r \x01(\x02\x12\x10\n\x08savefile\x18\x0e \x01(\t\x12\x0e\n\x06logdir\x18\x0f \x01(\t\x12\x12\n\nbeam_width\x18\x10 \x01(\x05\x12;\n\x0b\x61utoencoder\x18\x11 \x01(\x0b\x32&.StyleTransferParams.AutoencoderParams\x12?\n\rdiscriminator\x18\x12 \x01(\x0b\x32(.StyleTransferParams.DiscriminatorParams\x1a\xcb\x01\n\x13\x44iscriminatorParams\x12\x13\n\x0bin_channels\x18\x01 \x01(\x05\x12\x14\n\x0cout_channels\x18\x02 \x01(\x05\x12\x14\n\x0ckernel_sizes\x18\x03 \x03(\x05\x12\x16\n\x0e\x65mbedding_size\x18\x04 \x01(\x05\x12\x13\n\x0bhidden_size\x18\x05 \x01(\x05\x12\x0f\n\x07\x64ropout\x18\x06 \x01(\x02\x12\x15\n\rlearning_rate\x18\x07 \x01(\x02\x12\x0e\n\x06\x62\x65ta_0\x18\x08 \x01(\x02\x12\x0e\n\x06\x62\x65ta_1\x18\t \x01(\x02\x1a\x98\x01\n\x11\x41utoencoderParams\x12\x12\n\ninput_size\x18\x01 \x01(\x05\x12\x13\n\x0bhidden_size\x18\x02 \x01(\x05\x12\x12\n\nnum_layers\x18\x03 \x01(\x05\x12\x0f\n\x07\x64ropout\x18\x04 \x01(\x02\x12\x15\n\rlearning_rate\x18\x05 \x01(\x02\x12\x0e\n\x06\x62\x65ta_0\x18\x06 \x01(\x02\x12\x0e\n\x06\x62\x65ta_1\x18\x07 \x01(\x02\x62\x06proto3')
+  serialized_pb=_b('\n\x10parameters.proto\"\xcf\x06\n\x13StyleTransferParams\x12\x11\n\tin_memory\x18\x01 \x01(\x08\x12\x0f\n\x07max_len\x18\x02 \x01(\x05\x12\x16\n\x0e\x65mbedding_size\x18\x03 \x01(\x05\x12\r\n\x05\x64im_y\x18\x04 \x01(\x05\x12\r\n\x05\x64im_z\x18\x05 \x01(\x05\x12\x12\n\nbatch_size\x18\x06 \x01(\x05\x12\x0e\n\x06\x65pochs\x18\x07 \x01(\x05\x12\x13\n\x0btemperature\x18\x08 \x01(\x02\x12\x12\n\nlambda_GAN\x18\t \x01(\x02\x12\x0f\n\x07\x64ropout\x18\n \x01(\x02\x12\x10\n\x08max_loss\x18\x0b \x01(\x02\x12\x11\n\tgrad_clip\x18\x0c \x01(\x02\x12\x12\n\nmax_d_loss\x18\r \x01(\x02\x12\x10\n\x08savefile\x18\x0e \x01(\t\x12\x0e\n\x06logdir\x18\x0f \x01(\t\x12\x12\n\nbeam_width\x18\x10 \x01(\x05\x12\x15\n\rinitial_noise\x18\x11 \x01(\x02\x12\x13\n\x0bnoise_decay\x18\x12 \x01(\x02\x12;\n\x0b\x61utoencoder\x18\x13 \x01(\x0b\x32&.StyleTransferParams.AutoencoderParams\x12?\n\rdiscriminator\x18\x14 \x01(\x0b\x32(.StyleTransferParams.DiscriminatorParams\x1a\xcb\x01\n\x13\x44iscriminatorParams\x12\x13\n\x0bin_channels\x18\x01 \x01(\x05\x12\x14\n\x0cout_channels\x18\x02 \x01(\x05\x12\x14\n\x0ckernel_sizes\x18\x03 \x03(\x05\x12\x16\n\x0e\x65mbedding_size\x18\x04 \x01(\x05\x12\x13\n\x0bhidden_size\x18\x05 \x01(\x05\x12\x0f\n\x07\x64ropout\x18\x06 \x01(\x02\x12\x15\n\rlearning_rate\x18\x07 \x01(\x02\x12\x0e\n\x06\x62\x65ta_0\x18\x08 \x01(\x02\x12\x0e\n\x06\x62\x65ta_1\x18\t \x01(\x02\x1a\x98\x01\n\x11\x41utoencoderParams\x12\x12\n\ninput_size\x18\x01 \x01(\x05\x12\x13\n\x0bhidden_size\x18\x02 \x01(\x05\x12\x12\n\nnum_layers\x18\x03 \x01(\x05\x12\x0f\n\x07\x64ropout\x18\x04 \x01(\x02\x12\x15\n\rlearning_rate\x18\x05 \x01(\x02\x12\x0e\n\x06\x62\x65ta_0\x18\x06 \x01(\x02\x12\x0e\n\x06\x62\x65ta_1\x18\x07 \x01(\x02\x62\x06proto3')
 )
 
 
@@ -107,8 +107,8 @@ _STYLETRANSFERPARAMS_DISCRIMINATORPARAMS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=466,
-  serialized_end=669,
+  serialized_start=510,
+  serialized_end=713,
 )
 
 _STYLETRANSFERPARAMS_AUTOENCODERPARAMS = _descriptor.Descriptor(
@@ -179,8 +179,8 @@ _STYLETRANSFERPARAMS_AUTOENCODERPARAMS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=672,
-  serialized_end=824,
+  serialized_start=716,
+  serialized_end=868,
 )
 
 _STYLETRANSFERPARAMS = _descriptor.Descriptor(
@@ -303,15 +303,29 @@ _STYLETRANSFERPARAMS = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='autoencoder', full_name='StyleTransferParams.autoencoder', index=16,
-      number=17, type=11, cpp_type=10, label=1,
+      name='initial_noise', full_name='StyleTransferParams.initial_noise', index=16,
+      number=17, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='noise_decay', full_name='StyleTransferParams.noise_decay', index=17,
+      number=18, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='autoencoder', full_name='StyleTransferParams.autoencoder', index=18,
+      number=19, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='discriminator', full_name='StyleTransferParams.discriminator', index=17,
-      number=18, type=11, cpp_type=10, label=1,
+      name='discriminator', full_name='StyleTransferParams.discriminator', index=19,
+      number=20, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -329,7 +343,7 @@ _STYLETRANSFERPARAMS = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=21,
-  serialized_end=824,
+  serialized_end=868,
 )
 
 _STYLETRANSFERPARAMS_DISCRIMINATORPARAMS.containing_type = _STYLETRANSFERPARAMS
