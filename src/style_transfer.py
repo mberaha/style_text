@@ -22,12 +22,26 @@ from src.vocabulary import Vocabulary
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+class GaussianNoise(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, din, stddev):
+        if self.training:
+            noise = torch.autograd.Variable(
+                torch.randn(din.size()).to(device) * stddev)
+            return din + noise
+        return din
+
+
 class StyleTransfer(BaseModel):
 
     def __init__(self, params, vocabulary: Vocabulary):
         super().__init__()
         self.vocabulary = vocabulary
         self.params = params
+        self.discriminatorNoise = GaussianNoise()
+        self.noise_sigma = self.params.initial_noise
         # instantiating the encoder and the generator
         self.encoder = Rnn(
             self.params.autoencoder.input_size,
@@ -95,12 +109,15 @@ class StyleTransfer(BaseModel):
         self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
         self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
-    def adversarialLoss(self, x_real, x_fake, label):
+    def adversarialLoss(self, x_real, x_fake, label, noisy=True):
         ones = torch.ones((len(x_real), 1)).to(device)
         zeros = torch.zeros((len(x_fake), 1)).to(device)
         discriminator = self.discriminators[label]
         x_real = x_real.unsqueeze(1)
         x_fake = x_fake.unsqueeze(1)
+        if noisy:
+            x_real = self.discriminatorNoise(x_real, self.noise_sigma)
+            x_fake = self.discriminatorNoise(x_fake, self.noise_sigma)
         class_fake = discriminator(x_fake.detach())
         class_real = discriminator(x_real.detach())
         class_fake = class_fake.squeeze(0)
@@ -251,7 +268,7 @@ class StyleTransfer(BaseModel):
             d_loss, g_loss = self.adversarialLoss(
                 h_teacher[negativeIndex],
                 h_professor[positiveIndex],
-                0)
+                0, noisy=not evaluation)
             self.losses['discriminator0'] = d_loss
             self.losses['generator'] += g_loss
 
@@ -260,7 +277,7 @@ class StyleTransfer(BaseModel):
             d_loss, g_loss = self.adversarialLoss(
                 h_teacher[positiveIndex],
                 h_professor[negativeIndex],
-                1)
+                1, noisy=not evaluation)
             self.losses['discriminator1'] = d_loss
             self.losses['generator'] += g_loss
 
@@ -285,7 +302,7 @@ class StyleTransfer(BaseModel):
 
         return encoder_inputs, generator_inputs, targets, lengths
 
-    def trainOnBatch(self, sentences, labels, iterNum, printDebug=False):
+    def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
@@ -322,7 +339,7 @@ class StyleTransfer(BaseModel):
             self.losses['autoencoder'] += \
                 self.params.lambda_GAN * self.losses['generator']
 
-        if printDebug and iterNum % 200 == 0:
+        if iterNum % 200 == 0:
             self.losses['discriminator1'] = d1Loss
             self.losses['discriminator0'] = d0Loss
             self.printDebugLoss()
@@ -338,7 +355,7 @@ class StyleTransfer(BaseModel):
             self.params.grad_clip)
 
         self.autoencoder_optimizer.step()
-
+        self.noise_sigma = self.noise_sigma * self.params.noise_decay
         return self.losses['autoencoder']
 
     def evaluateOnBatch(self, sentences, labels):
