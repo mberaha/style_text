@@ -103,7 +103,6 @@ ENV/
 
 data/models/*
 data/yelp/model*
-<<<<<<< HEAD
+classifier/snapshot_yelp/*
+classifier/snapshot/best_on_MR/*
 data/yelp/classifier_train_dev/*
-=======
->>>>>>> 40b80ec05179708ed3bd9d8f1ff9e96775240eab
