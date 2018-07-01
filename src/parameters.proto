@@ -40,7 +40,9 @@ message StyleTransferParams {
   string savefile = 14;
   string logdir = 15;
   int32 beam_width = 16;
-  AutoencoderParams autoencoder = 17;
-  DiscriminatorParams discriminator = 18;
+  float initial_noise = 17;
+  float noise_decay = 18;
+  AutoencoderParams autoencoder = 19;
+  DiscriminatorParams discriminator = 20;
 
 }
