@@ -128,6 +128,7 @@ class StyleTransfer(BaseModel):
         labels = labels.unsqueeze(1)
         loss_d = self.adv_loss_criterion(class_real, ones) + \
             self.adv_loss_criterion(class_fake, zeros)
+        # non-saturating loss for g (see Goodfellow 2014)
         loss_g = self.adv_loss_criterion(class_fake, ones)
         return loss_d, loss_g
 
