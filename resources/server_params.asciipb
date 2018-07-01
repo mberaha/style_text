@@ -12,8 +12,8 @@ max_loss: 1e10
 grad_clip: 20
 max_d_loss: 1.2
 beam_width: 3
-initial_noise: 10
-noise_decay: 0.95
+initial_noise: 1
+noise_decay: 0.995
 
 autoencoder {
   input_size: 100
