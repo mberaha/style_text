@@ -27,7 +27,7 @@ autoencoder {
 
 discriminator {
   in_channels: 1
-  out_channels: 128
+  out_channels: 32
   kernel_sizes: 1
   kernel_sizes: 2
   kernel_sizes: 3
