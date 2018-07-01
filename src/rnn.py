@@ -5,7 +5,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Rnn(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, batch_first):
+    def __init__(
+            self, input_size, hidden_size, num_layers, batch_first,
+            dropout=1):
         # call the __init__ of nn.Module and inherit its functions
         super().__init__()
         # size of embeddings
@@ -15,12 +17,15 @@ class Rnn(nn.Module):
         self.num_layers = num_layers
         # create the RNN cell
         self.batch_first = batch_first
+        self.dropoutLayer = nn.Dropout(p=dropout)
         self.cell = nn.GRU(
             self.input_size, self.hidden_size,
             self.num_layers, batch_first=self.batch_first)
         # print("Batch first: ", self.cell.batch_first)
 
     def forward(self, inputs, hidden, lengths=[], pad=True):
+        inputs = self.dropoutLayer(inputs)
+
         if pad:
             inputs = nn.utils.rnn.pack_padded_sequence(
                 inputs, lengths, batch_first=self.batch_first)
@@ -30,6 +35,9 @@ class Rnn(nn.Module):
         if pad:
             output = nn.utils.rnn.pad_packed_sequence(
                 output, batch_first=self.batch_first)[0]
+
+        output = self.dropoutLayer(output)
+        hidden = self.dropoutLayer(hidden)
         return output, hidden
 
 
@@ -45,7 +53,8 @@ def SoftSampleWord(dropout, embeddings, gamma):
             (logits + G) / gamma, dim=1)  # log(logits) is better???
 
     def loop_func(output, hiddenToVocab):
-        out = torch.nn.functional.dropout(output, p=dropout)
+        drop = nn.Dropout(p=dropout)
+        out = drop(output)
         vocabLogits = hiddenToVocab(out[:, 0, :])
         vocabProbs = GumbelSoftmax(vocabLogits, gamma)
         currTokens = torch.matmul(
