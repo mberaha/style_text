@@ -70,7 +70,7 @@ def loadFilesAndGenerateBatches(
     return batches
 
 
-def noise(sentences, word_drop=0.1, k=3):
+def noise(sentences, word_drop=0.0, k=3):
     """
     Apply noise to input sentences as suggested in the paper:
     Unsupervised Machine Translation Using Monolingual Corpora Only
