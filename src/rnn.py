@@ -36,8 +36,6 @@ class Rnn(nn.Module):
             output = nn.utils.rnn.pad_packed_sequence(
                 output, batch_first=self.batch_first)[0]
 
-        output = self.dropoutLayer(output)
-        hidden = self.dropoutLayer(hidden)
         return output, hidden
 
 
