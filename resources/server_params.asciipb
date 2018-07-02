@@ -20,7 +20,7 @@ autoencoder {
   hidden_size: 700
   num_layers: 1
   dropout: 0.5
-  learning_rate: 0.0005
+  learning_rate: 0.001
   beta_0: 0.5
   beta_1: 0.999
   word_drop: 0.0
@@ -34,7 +34,7 @@ discriminator {
   kernel_sizes: 5
   embedding_size: 100
   dropout: 0.5
-  learning_rate: 0.0005
+  learning_rate: 0.001
   beta_0: 0.5
   beta_1: 0.999
   l_smoothing: 0.0
