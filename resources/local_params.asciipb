@@ -23,6 +23,7 @@ autoencoder {
   learning_rate: 0.0005
   beta_0: 0.5
   beta_1: 0.999
+  word_drop: 0.0
 }
 
 discriminator {
@@ -36,4 +37,6 @@ discriminator {
   learning_rate: 0.0005
   beta_0: 0.5
   beta_1: 0.999
+  l_smoothing: 0.0
+  l_flipping: 0.1
 }

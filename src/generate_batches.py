@@ -94,7 +94,8 @@ def noise(sentences, word_drop=0.0, k=3):
     return sentences
 
 
-def preprocessSentences(sentences, padToMaxLen=True, noisy=False):
+def preprocessSentences(
+        sentences, padToMaxLen=True, noisy=False, word_drop=0.0):
     def addGo(sentence):
         out = ['<go>']
         out.extend(sentence)
@@ -111,7 +112,7 @@ def preprocessSentences(sentences, padToMaxLen=True, noisy=False):
 
     sentences = sorted(sentences, key=len, reverse=True)
     if noisy:
-        sentences = noise(sentences)
+        sentences = noise(sentences, word_drop)
     encoder_inputs = copy.deepcopy(sentences)
     encoder_inputs = [addEos(x) for x in encoder_inputs]
     decoder_inputs = copy.deepcopy(sentences)
