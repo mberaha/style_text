@@ -1,4 +1,3 @@
-# TODO add dropout to the input of the GRU cells? Tianxiao does so
 import copy
 import json
 import logging
@@ -20,6 +19,29 @@ from src.vocabulary import Vocabulary
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def labelFlipping(ones, flipping):
+    """
+    apply one-sided label flipping to positive labels as described in:
+    https://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
+    """
+    s = ones.shape[0]
+    probs = ones / s
+    nSamples = int(round(s * flipping))
+    indexToFlip = torch.multinomial(probs[:, 0], nSamples)
+    ones[indexToFlip] = 0
+    return ones
+
+
+def labelSmoothing(ones, smoothing):
+    """
+    apply one sided smoothing to positive labels as described in:
+    Improved Techniques for Training GANs - 2016
+    """
+    randVec = torch.rand(ones.shape).to(device)
+    smoothed = ones - randVec*smoothing
+    return smoothed
 
 
 class GaussianNoise(nn.Module):
@@ -113,26 +135,37 @@ class StyleTransfer(BaseModel):
         self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
     def adversarialLoss(self, x_real, x_fake, label, noisy=True):
-        ones = torch.ones((len(x_real), 1)).to(device)
+        # initialize target tensors for the generator and the discriminator
         zeros = torch.zeros((len(x_fake), 1)).to(device)
+        g_ones = torch.ones((len(x_real), 1)).to(device)
+        d_ones = torch.ones((len(x_real), 1)).to(device)
+        if self.params.discriminator.l_smoothing:
+            d_ones = labelSmoothing(
+                d_ones, self.params.discriminator.l_smoothing)
+        if self.params.discriminator.l_flipping:
+            d_ones = labelFlipping(
+                d_ones, self.params.discriminator.l_flipping)
+
+        # choose which discriminator to apply
         discriminator = self.discriminators[label]
+        # prepare discriminator's inputs
         x_real = x_real.unsqueeze(1)
         x_fake = x_fake.unsqueeze(1)
         if noisy:
             x_real = self.discriminatorNoise(x_real, self.noise_sigma)
             x_fake = self.discriminatorNoise(x_fake, self.noise_sigma)
+
+        # run discriminator
         class_fake = discriminator(x_fake.detach())
         class_real = discriminator(x_real.detach())
         class_fake = class_fake.squeeze(0)
         class_real = class_real.squeeze(0)
 
-        labels = np.array([label] * x_real.shape[0])
-        labels = torch.FloatTensor(labels).to(device)
-        labels = labels.unsqueeze(1)
-        loss_d = self.adv_loss_criterion(class_real, ones) + \
+        # calculate adversarial loss for d
+        loss_d = self.adv_loss_criterion(class_real, d_ones) + \
             self.adv_loss_criterion(class_fake, zeros)
-        # non-saturating loss for g (see Goodfellow 2014)
-        loss_g = self.adv_loss_criterion(class_fake, ones)
+        # calculate non-saturating loss for g (see Goodfellow 2014)
+        loss_g = self.adv_loss_criterion(class_fake, g_ones)
         return loss_d, loss_g
 
     def _generateWithPrevOutput(
@@ -293,7 +326,9 @@ class StyleTransfer(BaseModel):
         # transform sentences into embeddings
         sentences = list(map(lambda x: x.split(" "), sentences))
         encoder_inputs, generator_inputs, targets, lengths = \
-            preprocessSentences(sentences, noisy=noisy)
+            preprocessSentences(
+                sentences, noisy=noisy,
+                word_drop=self.params.autoencoder.word_drop)
         encoder_inputs = torch.autograd.Variable(torch.stack(list(map(
             self.vocabulary, encoder_inputs))))
         generator_inputs = torch.autograd.Variable(torch.stack(list(map(
@@ -309,7 +344,8 @@ class StyleTransfer(BaseModel):
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
-            self._sentencesToInputs(sentences, noisy=True)
+            self._sentencesToInputs(
+                sentences, noisy=True)
 
         # compute losses for discriminator0 and optimize
         self._zeroGradients()

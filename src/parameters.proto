@@ -12,6 +12,8 @@ message StyleTransferParams {
     float learning_rate = 7;
     float beta_0 = 8;
     float beta_1 = 9;
+    float l_smoothing = 10;
+    float l_flipping = 11;
   }
 
   message AutoencoderParams {
@@ -22,6 +24,7 @@ message StyleTransferParams {
     float learning_rate = 5;
     float beta_0 = 6;
     float beta_1 = 7;
+    float word_drop = 8;
   }
 
   bool in_memory = 1;
