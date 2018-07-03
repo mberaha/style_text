@@ -426,12 +426,6 @@ class StyleTransfer(BaseModel):
         if self.params.logdir:
             greedy = GreedyDecoder(self, self.params)
             beam = BeamSearchDecoder(self, self.params)
-            reconstructedGreedy = []
-            transformedGreedy = []
-            reconstructedBeam = []
-            transformedBeam = []
-            allSentences = []
-            allLabels = []
             epoch_dir = os.path.join(
                 self.params.logdir, 'epoch_{0}'.format(epoch_index))
             os.makedirs(epoch_dir, exist_ok=True)
@@ -440,26 +434,17 @@ class StyleTransfer(BaseModel):
             with open(lossFile, 'wb') as fp:
                 pickle.dump(batchLosses, fp)
 
-            for batch in batches:
-                # rnn sorts sentences from longest to shortest, to keep the
-                # correspondance we do the same.
-                allSentences.extend(sorted(batch[0], key=len, reverse=True))
-                allLabels.extend(batch[1])
-                rGreedy, tGreedy = greedy.rewriteBatch(batch[0], batch[1])
-                reconstructedGreedy.extend(rGreedy)
-                transformedGreedy.extend(tGreedy)
-                rBeam, tBeam = beam.rewriteBatch(batch[0], batch[1])
-                reconstructedBeam.extend(rBeam)
-                transformedBeam.extend(tBeam)
+            batch = batches[0]
+            rGreedy, tGreedy = greedy.rewriteBatch(batch[0], batch[1])
+            rBeam, tBeam = beam.rewriteBatch(batch[0], batch[1])
 
             with open(transferFile, 'w') as fp:
                 json.dump(
-                    {'original': allSentences,
-                     'labels': allLabels,
-                     'reconstructed_greedy': reconstructedGreedy,
-                     'transformed_greedy': transformedGreedy,
-                     'reconstructed_beam': reconstructedBeam,
-                     'transformed_beam': transformedBeam}, fp)
+                    {'labels': batch[1],
+                     'reconstructed_greedy': rGreedy,
+                     'transformed_greedy': tGreedy,
+                     'reconstructed_beam': rBeam,
+                     'transformed_beam': tBeam}, fp)
 
         return np.average([float(x['autoencoder']) for x in batchLosses])
 
