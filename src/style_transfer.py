@@ -407,7 +407,7 @@ class StyleTransfer(BaseModel):
             self.printDebugLoss()
 
         self.losses['autoencoder'].backward(retain_graph=True)
-        # clip the backworder gradients
+        # clip the gradients
         torch.nn.utils.clip_grad_norm_(
             [*self.encoder.parameters(), *self.generator.parameters(),
              *self.encoderLabelsTransform.parameters(),
