@@ -134,17 +134,18 @@ class StyleTransfer(BaseModel):
         self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
         self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
-    def adversarialLoss(self, x_real, x_fake, label, noisy=True):
+    def adversarialLoss(self, x_real, x_fake, label, eg, noisy=True):
         # initialize target tensors for the generator and the discriminator
-        zeros = torch.zeros((len(x_fake), 1)).to(device)
-        g_ones = torch.ones((len(x_real), 1)).to(device)
-        d_ones = torch.ones((len(x_real), 1)).to(device)
-        if self.params.discriminator.l_smoothing:
-            d_ones = labelSmoothing(
-                d_ones, self.params.discriminator.l_smoothing)
-        if self.params.discriminator.l_flipping:
-            d_ones = labelFlipping(
-                d_ones, self.params.discriminator.l_flipping)
+        with torch.no_grad():
+            zeros = torch.zeros((len(x_fake), 1)).to(device)
+            g_ones = torch.ones((len(x_real), 1)).to(device)
+            d_ones = torch.ones((len(x_real), 1)).to(device)
+            if self.params.discriminator.l_smoothing:
+                d_ones = labelSmoothing(
+                    d_ones, self.params.discriminator.l_smoothing)
+            if self.params.discriminator.l_flipping:
+                d_ones = labelFlipping(
+                    d_ones, self.params.discriminator.l_flipping)
 
         # choose which discriminator to apply
         discriminator = self.discriminators[label]
@@ -156,17 +157,22 @@ class StyleTransfer(BaseModel):
             x_fake = self.discriminatorNoise(x_fake, self.noise_sigma)
 
         # run discriminator
-        class_fake = discriminator(x_fake.detach())
-        class_real = discriminator(x_real.detach())
-        class_fake = class_fake.squeeze(0)
-        class_real = class_real.squeeze(0)
+        if eg:
+            class_fake = discriminator(x_fake)
+            class_fake = class_fake.squeeze(0)
+            # calculate non-saturating loss for g (see Goodfellow 2014)
+            loss_g = self.adv_loss_criterion(class_fake, g_ones)
+            return loss_g
 
-        # calculate adversarial loss for d
-        loss_d = self.adv_loss_criterion(class_real, d_ones) + \
-            self.adv_loss_criterion(class_fake, zeros)
-        # calculate non-saturating loss for g (see Goodfellow 2014)
-        loss_g = self.adv_loss_criterion(class_fake, g_ones)
-        return loss_d, loss_g
+        else:
+            class_fake = discriminator(x_fake.detach())
+            class_real = discriminator(x_real.detach())
+            class_fake = class_fake.squeeze(0)
+            class_real = class_real.squeeze(0)
+            # calculate adversarial loss for d
+            loss_d = self.adv_loss_criterion(class_real, d_ones) + \
+                self.adv_loss_criterion(class_fake, zeros)
+            return loss_d
 
     def _generateWithPrevOutput(
             self, h0, max_len, lengths=[], evaluation=False, soft=True):
@@ -282,10 +288,16 @@ class StyleTransfer(BaseModel):
         self._computeHiddens(
                 encoder_inputs, generator_input, labels, lenghts, evaluation)
 
+        # teacher forced generation
         generatorOutputs, h_teacher = self._generateTokens(
             generator_input, self.originalHiddens, lenghts, evaluation)
 
-        # econder and generator's losses
+        # professor forced generation
+        h_professor, _ = self._generateWithPrevOutput(
+            self.transformedHiddens, self.params.max_len,
+            lenghts, evaluation, soft=True)
+
+        # econder and generator's reconstruction loss
         if which_params == 'eg':
             # re-pack padded sequence for computing losses
             packedGenOutput = nn.utils.rnn.pack_padded_sequence(
@@ -295,27 +307,38 @@ class StyleTransfer(BaseModel):
                 packedGenOutput.view(-1, self.vocabulary.vocabSize),
                 targets[0].view(-1))
 
-        # adversarial losses
-        h_professor, _ = self._generateWithPrevOutput(
-            self.transformedHiddens, self.params.max_len,
-            lenghts, evaluation, soft=True)
-
-        if which_params in ['eg', 'd0']:
-            d_loss, g_loss = self.adversarialLoss(
+            g_loss = self.adversarialLoss(
                 h_teacher[negativeIndex],
                 h_professor[positiveIndex],
-                0, noisy=not evaluation)
-            self.losses['discriminator0'] = d_loss
+                label=0, eg=True,
+                noisy=not evaluation)
             self.losses['generator'] += g_loss
 
-        # positive sentences
-        if which_params in ['eg', 'd1']:
-            d_loss, g_loss = self.adversarialLoss(
+            g_loss = self.adversarialLoss(
                 h_teacher[positiveIndex],
                 h_professor[negativeIndex],
-                1, noisy=not evaluation)
-            self.losses['discriminator1'] = d_loss
+                label=1, eg=True,
+                noisy=not evaluation)
             self.losses['generator'] += g_loss
+
+        # train D_0 with negative sentences
+        if which_params == 'd0':
+            d0_loss = self.adversarialLoss(
+                h_teacher[negativeIndex],
+                h_professor[positiveIndex],
+                label=0, eg=False,
+                noisy=not evaluation)
+            self.losses['discriminator0'] = d0_loss
+
+
+        # train D_1 with positive sentences
+        if which_params == 'd1':
+            d1_loss = self.adversarialLoss(
+                h_teacher[positiveIndex],
+                h_professor[negativeIndex],
+                label=1, eg=False,
+                noisy=not evaluation)
+            self.losses['discriminator1'] = d1_loss
 
     def _zeroGradients(self):
         self.autoencoder_optimizer.zero_grad()
@@ -384,7 +407,7 @@ class StyleTransfer(BaseModel):
             self.printDebugLoss()
 
         self.losses['autoencoder'].backward(retain_graph=True)
-
+        # clip the gradients
         torch.nn.utils.clip_grad_norm_(
             [*self.encoder.parameters(), *self.generator.parameters(),
              *self.encoderLabelsTransform.parameters(),
@@ -392,7 +415,7 @@ class StyleTransfer(BaseModel):
              *self.vocabulary.embeddings.parameters(),
              *self.hiddenToVocab.parameters()],
             self.params.grad_clip)
-
+        # then optimize the autoencoder
         self.autoencoder_optimizer.step()
         self.noise_sigma = self.noise_sigma * self.params.noise_decay
         return self.losses['autoencoder']
