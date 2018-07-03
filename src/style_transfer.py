@@ -164,7 +164,7 @@ class StyleTransfer(BaseModel):
             loss_g = self.adv_loss_criterion(class_fake, g_ones)
             return loss_g
 
-        if not eg:
+        else:
             class_fake = discriminator(x_fake.detach())
             class_real = discriminator(x_real.detach())
             class_fake = class_fake.squeeze(0)
