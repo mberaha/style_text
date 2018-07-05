@@ -136,16 +136,15 @@ class StyleTransfer(BaseModel):
 
     def adversarialLoss(self, x_real, x_fake, label, eg, noisy=True):
         # initialize target tensors for the generator and the discriminator
-        with torch.no_grad():
-            zeros = torch.zeros((len(x_fake), 1)).to(device)
-            g_ones = torch.ones((len(x_real), 1)).to(device)
-            d_ones = torch.ones((len(x_real), 1)).to(device)
-            if self.params.discriminator.l_smoothing:
-                d_ones = labelSmoothing(
-                    d_ones, self.params.discriminator.l_smoothing)
-            if self.params.discriminator.l_flipping:
-                d_ones = labelFlipping(
-                    d_ones, self.params.discriminator.l_flipping)
+        zeros = torch.zeros((len(x_fake), 1)).to(device)
+        g_ones = torch.ones((len(x_real), 1)).to(device)
+        d_ones = torch.ones((len(x_real), 1)).to(device)
+        if self.params.discriminator.l_smoothing:
+            d_ones = labelSmoothing(
+                d_ones, self.params.discriminator.l_smoothing)
+        if self.params.discriminator.l_flipping:
+            d_ones = labelFlipping(
+                d_ones, self.params.discriminator.l_flipping)
 
         # choose which discriminator to apply
         discriminator = self.discriminators[label]
@@ -457,13 +456,27 @@ class StyleTransfer(BaseModel):
             with open(lossFile, 'wb') as fp:
                 pickle.dump(batchLosses, fp)
 
-            batch = batches[0]
-            rGreedy, tGreedy = greedy.rewriteBatch(batch[0], batch[1])
-            rBeam, tBeam = beam.rewriteBatch(batch[0], batch[1])
+            inputs, labels = batches[0]
+            rGreedy, tGreedy = greedy.rewriteBatch(inputs, labels)
+            rBeam, tBeam = beam.rewriteBatch(inputs, labels)
+
+            encoder_inputs, generator_inputs, targets, lenghts = \
+                self._sentencesToInputs(inputs, noisy=False)
+            self._computeHiddens(
+                    encoder_inputs, generator_inputs, labels, lenghts, True)
+            reconstructed, _ = self._generateTokens(
+                generator_inputs, self.originalHiddens, lenghts, True)
+            reconstructedIds = reconstructed.max(2)[1]
+            reconstructedSents = []
+            for i in range(reconstructedIds.shape[0]):
+                ids = reconstructedIds[i, :]
+                reconstructedSents.append(
+                    " ".join([self.vocabulary.id2word[x] for x in ids]))
 
             with open(transferFile, 'w') as fp:
                 json.dump(
                     {'labels': batch[1],
+                     'reconstructed': reconstructedSents,
                      'reconstructed_greedy': rGreedy,
                      'transformed_greedy': tGreedy,
                      'reconstructed_beam': rBeam,
