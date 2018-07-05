@@ -4,7 +4,7 @@ embedding_size: 100
 dim_y: 200
 dim_z: 500
 batch_size: 12
-epochs: 20
+epochs: 5
 temperature: 0.1
 lambda_GAN: 1
 dropout: 0.5
