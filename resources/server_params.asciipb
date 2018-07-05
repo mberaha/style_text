@@ -3,7 +3,7 @@ max_len: 20
 embedding_size: 100
 dim_y: 200
 dim_z: 500
-batch_size: 256
+batch_size: 128
 epochs: 20
 temperature: 0.1
 lambda_GAN: 1
@@ -12,7 +12,7 @@ max_loss: 1e10
 grad_clip: 30
 max_d_loss: 1.2
 beam_width: 3
-initial_noise: 1
+initial_noise: 0.0
 noise_decay: 0.995
 
 autoencoder {
@@ -20,7 +20,7 @@ autoencoder {
   hidden_size: 700
   num_layers: 1
   dropout: 0.5
-  learning_rate: 0.001
+  learning_rate: 0.0001
   beta_0: 0.5
   beta_1: 0.999
   word_drop: 0.0
@@ -28,15 +28,17 @@ autoencoder {
 
 discriminator {
   in_channels: 1
-  out_channels: 32
+  out_channels: 128
+  kernel_sizes: 1
+  kernel_sizes: 2
   kernel_sizes: 3
-  kernel_sizes: 4
+  kernel_sizes: 3
   kernel_sizes: 5
   embedding_size: 100
   dropout: 0.5
-  learning_rate: 0.001
+  learning_rate: 0.0001
   beta_0: 0.5
   beta_1: 0.999
   l_smoothing: 0.0
-  l_flipping: 0.1
+  l_flipping: 0.0
 }
