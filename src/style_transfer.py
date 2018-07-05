@@ -136,16 +136,15 @@ class StyleTransfer(BaseModel):
 
     def adversarialLoss(self, x_real, x_fake, label, eg, noisy=True):
         # initialize target tensors for the generator and the discriminator
-        with torch.no_grad():
-            zeros = torch.zeros((len(x_fake), 1)).to(device)
-            g_ones = torch.ones((len(x_real), 1)).to(device)
-            d_ones = torch.ones((len(x_real), 1)).to(device)
-            if self.params.discriminator.l_smoothing:
-                d_ones = labelSmoothing(
-                    d_ones, self.params.discriminator.l_smoothing)
-            if self.params.discriminator.l_flipping:
-                d_ones = labelFlipping(
-                    d_ones, self.params.discriminator.l_flipping)
+        zeros = torch.zeros((len(x_fake), 1)).to(device)
+        g_ones = torch.ones((len(x_real), 1)).to(device)
+        d_ones = torch.ones((len(x_real), 1)).to(device)
+        if self.params.discriminator.l_smoothing:
+            d_ones = labelSmoothing(
+                d_ones, self.params.discriminator.l_smoothing)
+        if self.params.discriminator.l_flipping:
+            d_ones = labelFlipping(
+                d_ones, self.params.discriminator.l_flipping)
 
         # choose which discriminator to apply
         discriminator = self.discriminators[label]
