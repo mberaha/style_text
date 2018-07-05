@@ -221,8 +221,9 @@ class StyleTransfer(BaseModel):
         else:
             for index in range(max_len):
                 output, hidden = self.generator(currTokens, hidden, pad=False)
-                vocabLogit = self.hiddenToVocab(hidden)
-                idxs = vocabLogit[0, :, :].max(1)[1]
+                # TODO dropout here as in softSampleFunction? zia does
+                vocabLogits = self.hiddenToVocab(hidden)
+                idxs = vocabLogits[0, :, :].max(1)[1]
                 tokens[:, index] = idxs
                 currTokens = self.vocabulary(idxs, byWord=False).unsqueeze(1)
 
