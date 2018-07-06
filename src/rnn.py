@@ -48,7 +48,7 @@ def SoftSampleWord(dropout, embeddings, gamma):
         U = torch.rand(logits.shape).to(device)
         G = -torch.log(-torch.log(U + eps) + eps)
         return nn.functional.softmax(
-            (torch.log(logits) + G) / gamma, dim=1)
+            (logits + G) / gamma, dim=1)
 
     def loop_func(output, hiddenToVocab):
         drop = nn.Dropout(p=dropout)
