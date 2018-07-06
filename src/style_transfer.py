@@ -406,7 +406,7 @@ class StyleTransfer(BaseModel):
             self.losses['discriminator0'] = d0Loss
             self.printDebugLoss()
 
-        self.losses['autoencoder'].backward(retain_graph=True)
+        self.losses['autoencoder'].backward()
         # clip the gradients
         torch.nn.utils.clip_grad_norm_(
             [*self.encoder.parameters(), *self.generator.parameters(),
