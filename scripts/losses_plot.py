@@ -57,6 +57,6 @@ if __name__ == "__main__":
 
     plt.xlabel('Epoch')
     plt.ylabel('Loss')
-    plt.title('Average losses on evaluation set', fontsize=16)
+    plt.title('Average loss on evaluation set', fontsize=16)
     plt.legend(labels, loc="best")
     plt.savefig(args.output)

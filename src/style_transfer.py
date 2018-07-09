@@ -278,18 +278,11 @@ class StyleTransfer(BaseModel):
         self.transformedHiddens = torch.cat(
             (transformedHiddens, content), dim=2)
 
-    def _runBatch(
+    def _encode(
             self, encoder_inputs, generator_input,
-            targets, labels, lenghts, evaluation, which_params):
-        """
-        which_params - string 'd0' or 'd1' or 'eg'
-        """
-
+            labels, lenghts, evaluation):
         self.size = self.eval_size if evaluation else self.params.batch_size
         self.losses = defaultdict(float)
-        negativeIndex = np.where(labels == 0)[0]
-        positiveIndex = np.nonzero(labels)
-
         self._computeHiddens(
                 encoder_inputs, generator_input, labels, lenghts, evaluation)
 
@@ -302,11 +295,22 @@ class StyleTransfer(BaseModel):
             self.transformedHiddens, self.params.max_len,
             lenghts, evaluation, soft=True)
 
+        return generatorOutputs, h_teacher, h_professor
+
+    def _computeLosses(
+            self, generatorOutputs, h_teacher, h_professor, labels,
+            targets, lengths, which_params, evaluation):
+        """
+        which_params - string 'd0' or 'd1' or 'eg'
+        """
+        negativeIndex = np.where(labels == 0)[0]
+        positiveIndex = np.nonzero(labels)
+
         # econder and generator's reconstruction loss
         if which_params == 'eg':
             # re-pack padded sequence for computing losses
             packedGenOutput = nn.utils.rnn.pack_padded_sequence(
-                generatorOutputs, lenghts, batch_first=True)[0]
+                generatorOutputs, lengths, batch_first=True)[0]
 
             self.losses['reconstruction'] = self.rec_loss_criterion(
                 packedGenOutput.view(-1, self.vocabulary.vocabSize),
@@ -370,14 +374,17 @@ class StyleTransfer(BaseModel):
     def trainOnBatch(self, sentences, labels, iterNum):
         self.train()
         labels = np.array(labels)
-        encoder_inputs, generator_inputs, targets, lenghts = \
+        encoder_inputs, generator_inputs, targets, lengths = \
             self._sentencesToInputs(
                 sentences, noisy=True)
 
+        generatorOutputs, h_teacher, h_professor = self._encode(
+            encoder_inputs, generator_inputs, labels, lengths, evaluation=True)
         # compute losses for discriminator0 and optimize
+
         self._zeroGradients()
-        self._runBatch(
-            encoder_inputs, generator_inputs, targets, labels, lenghts,
+        self._computeLosses(
+            generatorOutputs, h_teacher, h_professor, labels, targets, lengths,
             evaluation=False, which_params='d0')
 
         d0Loss = self.losses['discriminator0']
@@ -386,8 +393,8 @@ class StyleTransfer(BaseModel):
 
         # compute losses for discriminator1 and optimize
         self._zeroGradients()
-        self._runBatch(
-            encoder_inputs, generator_inputs, targets, labels, lenghts,
+        self._computeLosses(
+            generatorOutputs, h_teacher, h_professor, labels, targets, lengths,
             evaluation=False, which_params='d1')
 
         d1Loss = self.losses['discriminator1']
@@ -396,8 +403,8 @@ class StyleTransfer(BaseModel):
 
         # compute losses for encoder and generator and optimize
         self._zeroGradients()
-        self._runBatch(
-            encoder_inputs, generator_inputs, targets, labels, lenghts,
+        self._computeLosses(
+            generatorOutputs, h_teacher, h_professor, labels, targets, lengths,
             evaluation=False, which_params='eg')
         self.losses['autoencoder'] = self.losses['reconstruction'].clone()
         if d1Loss < self.params.max_d_loss and \
@@ -431,9 +438,13 @@ class StyleTransfer(BaseModel):
             self._sentencesToInputs(sentences, noisy=False)
 
         labels = np.array(labels)
-        self._runBatch(
-            encoder_inputs, generator_inputs, targets, labels, lengths,
-            evaluation=True, which_params='eg')
+
+        generatorOutputs, h_teacher, h_professor = self._encode(
+            encoder_inputs, generator_inputs, labels, lengths, evaluation=True)
+
+        self._computeLosses(
+            generatorOutputs, h_teacher, h_professor, labels, targets, lengths,
+            evaluation=False, which_params='eg')
 
         self.losses['autoencoder'] = self.losses['reconstruction'] + \
             self.params.lambda_GAN * self.losses['generator']
