@@ -335,7 +335,6 @@ class StyleTransfer(BaseModel):
                 noisy=not evaluation)
             self.losses['discriminator0'] = d0_loss
 
-
         # train D_1 with positive sentences
         if which_params == 'd1':
             d1_loss = self.adversarialLoss(
@@ -406,9 +405,9 @@ class StyleTransfer(BaseModel):
             self.losses['autoencoder'] += \
                 self.params.lambda_GAN * self.losses['generator']
 
+        self.losses['discriminator1'] = d1Loss
+        self.losses['discriminator0'] = d0Loss
         if iterNum % 200 == 0:
-            self.losses['discriminator1'] = d1Loss
-            self.losses['discriminator0'] = d0Loss
             self.printDebugLoss()
 
         self.losses['autoencoder'].backward()
