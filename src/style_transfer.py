@@ -8,6 +8,7 @@ import torch
 from torch import optim
 import torch.nn as nn
 import torch.nn.functional
+from torch.autograd.variable import Variable
 from collections import defaultdict
 from src.beam_search import BeamSearchDecoder
 from src.greedy_decoding import GreedyDecoder
@@ -41,7 +42,7 @@ def labelSmoothing(ones, smoothing):
     """
     randVec = torch.rand(ones.shape).to(device)
     smoothed = ones - randVec*smoothing
-    return smoothed
+    return Variable(smoothed)
 
 
 class GaussianNoise(nn.Module):
@@ -50,7 +51,7 @@ class GaussianNoise(nn.Module):
 
     def forward(self, din, stddev):
         if self.training:
-            noise = torch.autograd.Variable(
+            noise = Variable(
                 torch.randn(din.size()).to(device) * stddev)
             return din + noise
         return din
@@ -136,9 +137,9 @@ class StyleTransfer(BaseModel):
 
     def adversarialLoss(self, x_real, x_fake, label, eg, noisy=True):
         # initialize target tensors for the generator and the discriminator
-        zeros = torch.zeros((len(x_fake), 1)).to(device)
-        g_ones = torch.ones((len(x_real), 1)).to(device)
-        d_ones = torch.ones((len(x_real), 1)).to(device)
+        zeros = Variable(torch.zeros((len(x_fake), 1))).to(device)
+        g_ones = Variable(torch.ones((len(x_real), 1))).to(device)
+        d_ones = Variable(torch.ones((len(x_real), 1))).to(device)
         if self.params.discriminator.l_smoothing:
             d_ones = labelSmoothing(
                 d_ones, self.params.discriminator.l_smoothing)
@@ -164,8 +165,12 @@ class StyleTransfer(BaseModel):
             return loss_g
 
         else:
-            class_fake = discriminator(x_fake.detach())
-            class_real = discriminator(x_real.detach())
+            # detach variables in order not to propagate the discriminator
+            # gradients to the generator.
+            x_fake_d = x_fake.detach()
+            x_real_d = x_real.detach()
+            class_fake = discriminator(x_fake_d)
+            class_real = discriminator(x_real_d)
             class_fake = class_fake.squeeze(0)
             class_real = class_real.squeeze(0)
             # calculate adversarial loss for d
@@ -352,11 +357,11 @@ class StyleTransfer(BaseModel):
             preprocessSentences(
                 sentences, noisy=noisy,
                 word_drop=self.params.autoencoder.word_drop)
-        encoder_inputs = torch.autograd.Variable(torch.stack(list(map(
+        encoder_inputs = Variable(torch.stack(list(map(
             self.vocabulary, encoder_inputs))))
-        generator_inputs = torch.autograd.Variable(torch.stack(list(map(
+        generator_inputs = Variable(torch.stack(list(map(
             self.vocabulary, generator_inputs))))
-        targets = torch.autograd.Variable(torch.stack(list(map(
+        targets = Variable(torch.stack(list(map(
             self.vocabulary.getSentenceIds, targets))))
         targets = nn.utils.rnn.pack_padded_sequence(
             targets, lengths, batch_first=True)

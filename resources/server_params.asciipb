@@ -6,7 +6,7 @@ dim_z: 500
 batch_size: 256
 epochs: 20
 temperature: 0.1
-lambda_GAN: 1
+lambda_GAN: 0.5
 dropout: 0.5
 max_loss: 1e10
 grad_clip: 30
