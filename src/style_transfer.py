@@ -379,7 +379,7 @@ class StyleTransfer(BaseModel):
                 sentences, noisy=True)
 
         generatorOutputs, h_teacher, h_professor = self._encode(
-            encoder_inputs, generator_inputs, labels, lengths, evaluation=True)
+            encoder_inputs, generator_inputs, labels, lengths, evaluation=False)
         # compute losses for discriminator0 and optimize
 
         self._zeroGradients()
