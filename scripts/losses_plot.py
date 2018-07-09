@@ -1,6 +1,8 @@
 import argparse
 import numpy as np
 import pickle
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
@@ -53,5 +55,8 @@ if __name__ == "__main__":
             avgLossesById[label],
             2 * np.array(stdDevById[label]))
 
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title('Average losses on evaluation set', fontsize=16)
     plt.legend(labels, loc="best")
     plt.savefig(args.output)
