@@ -81,6 +81,7 @@ class StyleTransfer(BaseModel):
             dropout=self.params.dropout).to(device)
 
         # instantiating linear networks for hidden transformations
+        print('Vocabulary Size: ', self.vocabulary.vocabSize)
         self.encoderLabelsTransform = \
             torch.nn.Linear(1, self.params.dim_y).to(device)
         self.generatorLabelsTransform = \
@@ -214,6 +215,7 @@ class StyleTransfer(BaseModel):
         if soft:
             for index in range(max_len):
                 # generator need input (seq_len, batch_size, input_size)
+                hiddens[:, index, :] = hidden
                 output, hidden = self.generator(
                     currTokens, hidden, pad=False)
                 currTokens, vocabLogits = softSampleFunction(
@@ -221,7 +223,6 @@ class StyleTransfer(BaseModel):
                     hiddenToVocab=self.hiddenToVocab)
                 tokens[:, index, :] = currTokens
                 currTokens = currTokens.unsqueeze(1)
-                hiddens[:, index, :] = hidden
 
         else:
             for index in range(max_len):
@@ -257,6 +258,7 @@ class StyleTransfer(BaseModel):
         else:
             size = self.params.batch_size
 
+        batch_len = encoder_inputs.shape[1]
         tensorLabels = torch.FloatTensor(labels).to(device)
         tensorLabels = tensorLabels.unsqueeze(1)
         initialHiddens = self.encoderLabelsTransform(tensorLabels)
@@ -275,14 +277,27 @@ class StyleTransfer(BaseModel):
         # generating the hidden states with inverted labels (yq, zp)
         transformedHiddens = self.generatorLabelsTransform(1 - tensorLabels)
         transformedHiddens = transformedHiddens.unsqueeze(0)
-        self.transformedHiddens = torch.cat(
+        transformedHiddens = torch.cat(
             (transformedHiddens, content), dim=2)
+
+        self.transformedHiddens = transformedHiddens[:, batch_len+1, :]
 
     def _encode(
             self, encoder_inputs, generator_input,
             labels, lenghts, evaluation):
         self.size = self.eval_size if evaluation else self.params.batch_size
-        self.losses = defaultdict(float)
+        self.losses = defaultdict(float)encoder_inputs, generator_inputs, targets, lenghts = \
+            self._sentencesToInputs(inputs, noisy=False)
+        self._computeHiddens(
+                encoder_inputs, generator_inputs, labels, lenghts, True)
+        reconstructed, _ = self._generateTokens(
+            generator_inputs, self.originalHiddens, lenghts, True)
+        reconstructedIds = reconstructed.max(2)[1]
+        reconstructedSents = []
+        for i in range(reconstructedIds.shape[0]):
+            ids = reconstructedIds[i, :]
+            reconstructedSents.append(
+                " ".join([self.vocabulary.id2word[x] for x in ids]))
         self._computeHiddens(
                 encoder_inputs, generator_input, labels, lenghts, evaluation)
 
