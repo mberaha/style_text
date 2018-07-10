@@ -192,7 +192,6 @@ class StyleTransfer(BaseModel):
         hiddens -- of shape (max_len, 1, hidden_size).
                     If length<max_len it ends with zeros.
         """
-
         hidden = h0
         hiddens = torch.zeros(
             self.size, max_len, self.params.autoencoder.hidden_size,
@@ -232,8 +231,6 @@ class StyleTransfer(BaseModel):
                 idxs = vocabLogits[0, :, :].max(1)[1]
                 tokens[:, index] = idxs
                 currTokens = self.vocabulary(idxs, byWord=False).unsqueeze(1)
-
-        hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
         return hiddens, tokens
 
     def _generateTokens(self, tokens, h0, lenghts, evaluation):
@@ -258,7 +255,6 @@ class StyleTransfer(BaseModel):
         else:
             size = self.params.batch_size
 
-        batch_len = encoder_inputs.shape[1]
         tensorLabels = torch.FloatTensor(labels).to(device)
         tensorLabels = tensorLabels.unsqueeze(1)
         initialHiddens = self.encoderLabelsTransform(tensorLabels)
@@ -277,14 +273,14 @@ class StyleTransfer(BaseModel):
         # generating the hidden states with inverted labels (yq, zp)
         transformedHiddens = self.generatorLabelsTransform(1 - tensorLabels)
         transformedHiddens = transformedHiddens.unsqueeze(0)
-        transformedHiddens = torch.cat(
+        self.transformedHiddens = torch.cat(
             (transformedHiddens, content), dim=2)
-
-        self.transformedHiddens = transformedHiddens[:, batch_len+1, :]
 
     def _encode(
             self, encoder_inputs, generator_input,
             labels, lenghts, evaluation):
+
+        batch_len = encoder_inputs.shape[1]
         self.size = self.eval_size if evaluation else self.params.batch_size
         self.losses = defaultdict(float)
         self._computeHiddens(
@@ -299,6 +295,7 @@ class StyleTransfer(BaseModel):
             self.transformedHiddens, self.params.max_len,
             lenghts, evaluation, soft=True)
 
+        h_professor = h_professor[:, :batch_len, :]
         return generatorOutputs, h_teacher, h_professor
 
     def _computeLosses(

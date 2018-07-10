@@ -3,7 +3,7 @@ max_len: 20
 embedding_size: 100
 dim_y: 200
 dim_z: 500
-batch_size: 256
+batch_size: 128
 epochs: 20
 temperature: 0.1
 lambda_GAN: 0.5
