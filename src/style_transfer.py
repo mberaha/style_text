@@ -286,8 +286,7 @@ class StyleTransfer(BaseModel):
             self, encoder_inputs, generator_input,
             labels, lenghts, evaluation):
         self.size = self.eval_size if evaluation else self.params.batch_size
-        self.losses = defaultdict(float)encoder_inputs, generator_inputs, targets, lenghts = \
-            self._sentencesToInputs(inputs, noisy=False)
+        self.losses = defaultdict(float)
         self._computeHiddens(
                 encoder_inputs, generator_inputs, labels, lenghts, True)
         reconstructed, _ = self._generateTokens(
