@@ -288,16 +288,6 @@ class StyleTransfer(BaseModel):
         self.size = self.eval_size if evaluation else self.params.batch_size
         self.losses = defaultdict(float)
         self._computeHiddens(
-                encoder_inputs, generator_inputs, labels, lenghts, True)
-        reconstructed, _ = self._generateTokens(
-            generator_inputs, self.originalHiddens, lenghts, True)
-        reconstructedIds = reconstructed.max(2)[1]
-        reconstructedSents = []
-        for i in range(reconstructedIds.shape[0]):
-            ids = reconstructedIds[i, :]
-            reconstructedSents.append(
-                " ".join([self.vocabulary.id2word[x] for x in ids]))
-        self._computeHiddens(
                 encoder_inputs, generator_input, labels, lenghts, evaluation)
 
         # teacher forced generation
