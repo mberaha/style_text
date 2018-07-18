@@ -176,8 +176,7 @@ class StyleTransfer(BaseModel):
 
         # dropping some values of the generator output
         # during both training and test
-        output = self.dropoutLayer(
-            output, p=self.params.dropout)
+        output = self.dropoutLayer(output)
 
         generatedVocabs = self.hiddenToVocab(output)
         return generatedVocabs, output
