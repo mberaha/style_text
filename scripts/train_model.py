@@ -5,7 +5,7 @@ from google.protobuf import text_format
 from google.protobuf.json_format import MessageToJson
 from src.generate_batches import batchesFromFiles
 from src.parameters_pb2 import StyleTransferParams
-from src.style_transfer import StyleTransfer
+from src.style_transfer2 import StyleTransfer
 from src.vocabulary import Vocabulary
 
 machineToParams = {
