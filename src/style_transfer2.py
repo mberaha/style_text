@@ -1,18 +1,22 @@
-# TODO add dropout to the input of the GRU cells? Tianxiao does so
+import copy
 import json
 import logging
 import numpy as np
+import os
+import pickle
 import torch
 from torch import optim
 import torch.nn as nn
 import torch.nn.functional
+from torch.autograd.variable import Variable
 from collections import defaultdict
+from src.beam_search import BeamSearchDecoder
+from src.greedy_decoding import GreedyDecoder
 from src.base_model import BaseModel
 from src.generate_batches import preprocessSentences
 from src.rnn import Rnn, SoftSampleWord
 from src.discriminator import Cnn
 from src.vocabulary import Vocabulary
-from torch.autograd.variable import Variable
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -354,14 +358,54 @@ class StyleTransfer(BaseModel):
 
         return self.losses['autoencoder']
 
-    def evaluate(self, batches):
+    def evaluate(self, batches, epoch_index):
+        batchLosses = []
         self.losses = defaultdict(float)
         for batch in batches:
             sentences = batch[0]
             labels = batch[1]
             self.evaluateOnBatch(sentences, labels)
+            batchLosses.append(
+                {k: copy.deepcopy(float(v)) for k, v in self.losses.items()})
 
-        return self.losses['autoencoder']
+        if self.params.logdir:
+            greedy = GreedyDecoder(self, self.params)
+            beam = BeamSearchDecoder(self, self.params)
+            epoch_dir = os.path.join(
+                self.params.logdir, 'epoch_{0}'.format(epoch_index))
+            os.makedirs(epoch_dir, exist_ok=True)
+            lossFile = os.path.join(epoch_dir, 'losses.pickle')
+            transferFile = os.path.join(epoch_dir, 'transfers.json')
+            with open(lossFile, 'wb') as fp:
+                pickle.dump(batchLosses, fp)
+
+            inputs, labels = batches[0]
+            rGreedy, tGreedy = greedy.rewriteBatch(inputs, labels)
+            rBeam, tBeam = beam.rewriteBatch(inputs, labels)
+
+            encoder_inputs, generator_inputs, targets, lenghts = \
+                self._sentencesToInputs(inputs, noisy=False)
+            self._computeHiddens(
+                    encoder_inputs, generator_inputs, labels, lenghts, True)
+            reconstructed, _ = self._generateTokens(
+                generator_inputs, self.originalHiddens, lenghts, True)
+            reconstructedIds = reconstructed.max(2)[1]
+            reconstructedSents = []
+            for i in range(reconstructedIds.shape[0]):
+                ids = reconstructedIds[i, :]
+                reconstructedSents.append(
+                    " ".join([self.vocabulary.id2word[x] for x in ids]))
+
+            with open(transferFile, 'w') as fp:
+                json.dump(
+                    {'labels': batch[1],
+                     'reconstructed': reconstructedSents,
+                     'reconstructed_greedy': rGreedy,
+                     'transformed_greedy': tGreedy,
+                     'reconstructed_beam': rBeam,
+                     'transformed_beam': tBeam}, fp)
+
+        return np.average([float(x['autoencoder']) for x in batchLosses])
 
     def transformBatch(self, sentences, labels):
         self.eval()
