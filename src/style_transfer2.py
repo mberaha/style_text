@@ -384,7 +384,7 @@ class StyleTransfer(BaseModel):
             rBeam, tBeam = beam.rewriteBatch(inputs, labels)
 
             encoder_inputs, generator_inputs, targets, lenghts = \
-                self._sentencesToInputs(inputs, noisy=False)
+                self._sentencesToInputs(inputs)
             self._computeHiddens(
                     encoder_inputs, generator_inputs, labels, lenghts, True)
             reconstructed, _ = self._generateTokens(
