@@ -22,6 +22,41 @@ from src.vocabulary import Vocabulary
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+def labelFlipping(ones, flipping):
+    """
+    apply one-sided label flipping to positive labels as described in:
+    https://www.inference.vc/instance-noise-a-trick-for-stabilising-gan-training/
+    """
+    s = ones.shape[0]
+    probs = ones / s
+    nSamples = int(round(s * flipping))
+    indexToFlip = torch.multinomial(probs[:, 0], nSamples)
+    ones[indexToFlip] = 0
+    return ones
+
+
+def labelSmoothing(ones, smoothing):
+    """
+    apply one sided smoothing to positive labels as described in:
+    Improved Techniques for Training GANs - 2016
+    """
+    randVec = torch.rand(ones.shape).to(device)
+    smoothed = ones - randVec*smoothing
+    return Variable(smoothed)
+
+
+class GaussianNoise(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, din, stddev):
+        if self.training:
+            noise = Variable(
+                torch.randn(din.size()).to(device) * stddev)
+            return din + noise
+        return din
+
+
 class StyleTransfer(BaseModel):
 
     def __init__(self, params, vocabulary: Vocabulary):
@@ -29,6 +64,8 @@ class StyleTransfer(BaseModel):
         self.vocabulary = vocabulary
         self.params = params
         self.dropoutLayer = nn.Dropout(p=self.params.dropout)
+        self.discriminatorNoise = GaussianNoise()
+        self.noise_sigma = self.params.initial_noise
         # instantiating the encoder and the generator
         self.encoder = Rnn(
             params.autoencoder.input_size,
@@ -98,20 +135,31 @@ class StyleTransfer(BaseModel):
         self.rec_loss_criterion = nn.CrossEntropyLoss().to(device)
         self.adv_loss_criterion = nn.BCEWithLogitsLoss().to(device)
 
-    def adversarialLoss(self, x_real, x_fake, label):
-        ones = Variable(torch.ones((len(x_real), 1)).to(device))
+    def adversarialLoss(self, x_real, x_fake, label, noisy: bool):
+        d_ones = Variable(torch.ones((len(x_real), 1)).to(device))
+        g_ones = Variable(torch.ones((len(x_real), 1)).to(device))
         zeros = Variable(torch.zeros((len(x_fake), 1)).to(device))
+        if self.params.discriminator.l_smoothing:
+            d_ones = labelSmoothing(
+                d_ones, self.params.discriminator.l_smoothing)
+        if self.params.discriminator.l_flipping:
+            d_ones = labelFlipping(
+                d_ones, self.params.discriminator.l_flipping)
+
         discriminator = self.discriminators[label]
         x_fake = x_fake.unsqueeze(1)
         x_real = x_real.unsqueeze(1)
+        if noisy:
+            x_real = self.discriminatorNoise(x_real, self.noise_sigma)
+            x_fake = self.discriminatorNoise(x_fake, self.noise_sigma)
         class_fake = discriminator(x_fake.detach())
         class_real = discriminator(x_real.detach())
         class_fake = class_fake.squeeze(0)
         class_real = class_real.squeeze(0)
 
-        loss_d = self.adv_loss_criterion(class_real, ones) + \
+        loss_d = self.adv_loss_criterion(class_real, d_ones) + \
             self.adv_loss_criterion(class_fake, zeros)
-        loss_g = self.adv_loss_criterion(class_fake, ones)
+        loss_g = self.adv_loss_criterion(class_fake, g_ones)
         return loss_d, loss_g
 
     def _generateWithPrevOutput(
@@ -253,7 +301,7 @@ class StyleTransfer(BaseModel):
             d_loss, g_loss = self.adversarialLoss(
                 h_teacher[negativeIndex],
                 h_professor[positiveIndex],
-                0)
+                0, noisy=not evaluation)
             self.losses['discriminator0'] = d_loss
             self.losses['generator'] += g_loss
 
@@ -262,7 +310,7 @@ class StyleTransfer(BaseModel):
             d_loss, g_loss = self.adversarialLoss(
                 h_teacher[positiveIndex],
                 h_professor[negativeIndex],
-                1)
+                1, noisy=not evaluation)
             self.losses['discriminator1'] = d_loss
             self.losses['generator'] += g_loss
 
@@ -271,11 +319,11 @@ class StyleTransfer(BaseModel):
         self.discriminator0_optimizer.zero_grad()
         self.discriminator1_optimizer.zero_grad()
 
-    def _sentencesToInputs(self, sentences):
+    def _sentencesToInputs(self, sentences, noisy):
         # transform sentences into embeddings
         sentences = list(map(lambda x: x.split(" "), sentences))
         encoder_inputs, generator_inputs, targets, lengths = \
-            preprocessSentences(sentences)
+            preprocessSentences(sentences, noisy=noisy)
         encoder_inputs = torch.stack(list(map(
             self.vocabulary, encoder_inputs)))
         generator_inputs = torch.stack(list(map(
@@ -291,7 +339,7 @@ class StyleTransfer(BaseModel):
         self.train()
         labels = np.array(labels)
         encoder_inputs, generator_inputs, targets, lenghts = \
-            self._sentencesToInputs(sentences)
+            self._sentencesToInputs(sentences, noisy=True)
 
         # compute losses for discriminator0 and optimize
         self._zeroGradients()
@@ -340,14 +388,14 @@ class StyleTransfer(BaseModel):
             self.params.grad_clip)
 
         self.autoencoder_optimizer.step()
-
+        self.noise_sigma = self.noise_sigma * self.params.noise_decay
         return self.losses['autoencoder']
 
     def evaluateOnBatch(self, sentences, labels):
         self.eval()
         self.eval_size = len(sentences)
         encoder_inputs, generator_inputs, targets, lengths = \
-            self._sentencesToInputs(sentences)
+            self._sentencesToInputs(sentences, noisy=False)
 
         self._runBatch(
             encoder_inputs, generator_inputs, targets, labels, lengths,
@@ -384,7 +432,7 @@ class StyleTransfer(BaseModel):
             rBeam, tBeam = beam.rewriteBatch(inputs, labels)
 
             encoder_inputs, generator_inputs, targets, lenghts = \
-                self._sentencesToInputs(inputs)
+                self._sentencesToInputs(inputs, noisy=False)
             self._computeHiddens(
                     encoder_inputs, generator_inputs, labels, lenghts, True)
             reconstructed, _ = self._generateTokens(
@@ -411,7 +459,7 @@ class StyleTransfer(BaseModel):
         self.eval()
         self.eval_size = len(sentences)
         encoder_inputs, generator_inputs, _, lengths = \
-            self._sentencesToInputs(sentences)
+            self._sentencesToInputs(sentences, noisy=False)
         self._computeHiddens(
             encoder_inputs, generator_inputs, labels, lengths, evaluation=True)
 
