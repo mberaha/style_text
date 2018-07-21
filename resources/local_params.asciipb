@@ -37,6 +37,6 @@ discriminator {
   learning_rate: 0.001
   beta_0: 0.5
   beta_1: 0.999
-  l_smoothing: 0.0
+  l_smoothing: 0.1
   l_flipping: 0.1
 }

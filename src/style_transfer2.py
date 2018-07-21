@@ -199,17 +199,28 @@ class StyleTransfer(BaseModel):
             embeddings=self.vocabulary.embeddings,
             gamma=self.params.temperature)
 
-        for index in range(max_len):
-            # generator need input (seq_len, batch_size, input_size)
-            output, hidden = self.generator(
-                currTokens, hidden, lengths, pad=False)
-            currTokens, vocabLogits = softSampleFunction(
-                output=output,
-                hiddenToVocab=self.hiddenToVocab)
-            currTokens = currTokens.unsqueeze(1)
-            hiddens[:, index, :] = hidden
+        if soft:
+            for index in range(max_len):
+                # generator need input (seq_len, batch_size, input_size)
+                hiddens[:, index, :] = hidden
+                output, hidden = self.generator(
+                    currTokens, hidden, pad=False)
+                currTokens, vocabLogits = softSampleFunction(
+                    output=output,
+                    hiddenToVocab=self.hiddenToVocab)
+                tokens[:, index, :] = currTokens
+                currTokens = currTokens.unsqueeze(1)
 
-        hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
+        else:
+            for index in range(max_len):
+                output, hidden = self.generator(currTokens, hidden, pad=False)
+                hidden = self.dropoutLayer(hidden)
+                vocabLogits = self.hiddenToVocab(hidden)
+                idxs = vocabLogits[0, :, :].max(1)[1]
+                tokens[:, index] = idxs
+                currTokens = self.vocabulary(idxs, byWord=False).unsqueeze(1)
+
+        # hiddens = torch.cat((h0.transpose(0, 1), hiddens), dim=1)
         # tokens = torch.cat((goEmbedding, tokens), dim=1)
         return hiddens, tokens
 

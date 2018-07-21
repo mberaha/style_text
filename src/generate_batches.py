@@ -124,5 +124,4 @@ def preprocessSentences(
         encoder_inputs = [addPad(x, maxlen) for x in encoder_inputs]
         decoder_inputs = [addPad(x, maxlen) for x in decoder_inputs]
         targets = [addPad(x, maxlen) for x in targets]
-
     return encoder_inputs, decoder_inputs, targets, lengths

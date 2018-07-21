@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--log_path", type=str,
-        default='data/models/yelp/log/epoch_{0}/losses.pickle')
+        default='data/models/yelp/log/log/epoch_{0}/losses.pickle')
     parser.add_argument(
         "--output", type=str)
 

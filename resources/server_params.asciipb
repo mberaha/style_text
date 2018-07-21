@@ -3,7 +3,7 @@ max_len: 20
 embedding_size: 100
 dim_y: 200
 dim_z: 500
-batch_size: 128
+batch_size: 256
 epochs: 20
 temperature: 0.1
 lambda_GAN: 1.0
@@ -11,8 +11,8 @@ dropout: 0.5
 max_loss: 1e10
 grad_clip: 30
 max_d_loss: 1.2
-beam_width: 3
-initial_noise: 1
+beam_width: 10
+initial_noise: 0
 noise_decay: 0.998
 
 autoencoder {

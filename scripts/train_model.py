@@ -67,5 +67,4 @@ if __name__ == "__main__":
         style2=args.evaluation_file_style2,
         batchsize=params.batch_size,
         inMemory=True)
-
     model.trainModel(trainBatches, validSet)
