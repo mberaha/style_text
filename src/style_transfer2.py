@@ -202,13 +202,13 @@ class StyleTransfer(BaseModel):
         if soft:
             for index in range(max_len):
                 # generator need input (seq_len, batch_size, input_size)
-                hiddens[:, index, :] = hidden
                 output, hidden = self.generator(
                     currTokens, hidden, pad=False)
                 currTokens, vocabLogits = softSampleFunction(
                     output=output,
                     hiddenToVocab=self.hiddenToVocab)
                 tokens[:, index, :] = currTokens
+                hiddens[:, index, :] = hidden
                 currTokens = currTokens.unsqueeze(1)
 
         else:
