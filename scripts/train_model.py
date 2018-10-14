@@ -8,14 +8,9 @@ from src.parameters_pb2 import StyleTransferParams
 from src.style_transfer import StyleTransfer
 from src.vocabulary import Vocabulary
 
-machineToParams = {
-    'local': 'resources/local_params.asciipb',
-    'server': 'resources/server_params.asciipb'
-}
 
-
-def loadParams(machine):
-    filename = machineToParams[machine]
+def loadParams():
+    filename = 'resources/params.asciipb'
     params = StyleTransferParams()
     with open(filename, 'r') as fp:
         text_format.Parse(fp.read(), params)
@@ -40,7 +35,6 @@ if __name__ == "__main__":
     parser.add_argument("--vocabulary", type=str)
     parser.add_argument("--savefile", type=str)
     parser.add_argument("--logdir", type=str, default="")
-    parser.add_argument("--machine", type=str, default="local")
     args = parser.parse_args()
 
     params = loadParams(args.machine)
