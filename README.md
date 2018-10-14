@@ -8,6 +8,8 @@ Instructions to use the code:
  
 > protoc --proto_path=src --python_out=src src/parameters.proto
 
+For furhter instructions on how to install protoc and what are protocol buffers, you can refere to Google's [page](https://developers.google.com/protocol-buffers/docs/pythontutorial)
+
 2. Update the parameters value contained in the file resources/params.asciipb with your choiche of the parameters
 
 3. Train the model using the file in scripts/train_yelp.sh
